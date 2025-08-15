@@ -1,0 +1,58 @@
+import { Salad } from '../types';
+
+export const salads: Salad[] = [
+  {
+    id: 'cesar-clasica',
+    name: 'César Clásica',
+    description: 'Una deliciosa ensalada con lechuga crujiente, croutons y nuestro especial aderezo césar',
+    image: 'https://images.pexels.com/photos/1213710/pexels-photo-1213710.jpeg?auto=compress&cs=tinysrgb&w=500&h=400&fit=crop',
+    baseIngredients: ['lechuga', 'croutons', 'queso-fresco', 'cesar'],
+    basePrice: 2500,
+    active: true,
+  },
+  {
+    id: 'mediterranea',
+    name: 'Mediterránea',
+    description: 'Fresca combinación de vegetales con queso fresco y aceitunas',
+    image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=500&h=400&fit=crop',
+    baseIngredients: ['lechuga', 'tomate', 'pepino', 'cebolla-morada', 'queso-fresco', 'vinagreta'],
+    basePrice: 2800,
+    active: true,
+  },
+  {
+    id: 'proteica',
+    name: 'Proteica Power',
+    description: 'Para los que buscan energía: pollo grillado, quinoa y vegetales frescos',
+    image: 'https://images.pexels.com/photos/1092730/pexels-photo-1092730.jpeg?auto=compress&cs=tinysrgb&w=500&h=400&fit=crop',
+    baseIngredients: ['lechuga', 'pollo-grillado', 'quinoa', 'tomate', 'palta', 'miel-mostaza'],
+    basePrice: 3500,
+    active: true,
+  },
+  {
+    id: 'verde-vital',
+    name: 'Verde Vital',
+    description: 'Una explosión de verdes con rúcula, palta y semillas',
+    image: 'https://images.pexels.com/photos/1059905/pexels-photo-1059905.jpeg?auto=compress&cs=tinysrgb&w=500&h=400&fit=crop',
+    baseIngredients: ['rucula', 'lechuga', 'palta', 'pepino', 'semillas-girasol', 'yogurt-natural'],
+    basePrice: 2600,
+    active: true,
+  },
+  {
+    id: 'tropical',
+    name: 'Tropical Fresh',
+    description: 'Dulce y refrescante con frutas de estación y vegetales crujientes',
+    image: 'https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=500&h=400&fit=crop',
+    baseIngredients: ['lechuga', 'frutillas', 'manzana', 'zanahoria', 'queso-fresco', 'vinagreta'],
+    basePrice: 2900,
+    active: true,
+  },
+  {
+    id: 'salmon-premium',
+    name: 'Salmón Premium',
+    description: 'Nuestra ensalada más exclusiva con salmón fresco y vegetales gourmet',
+    image: 'https://images.pexels.com/photos/718742/pexels-photo-718742.jpeg?auto=compress&cs=tinysrgb&w=500&h=400&fit=crop',
+    baseIngredients: ['rucula', 'salmón', 'palta', 'tomate', 'cebolla-morada', 'yogurt-natural'],
+    basePrice: 4200,
+    active: true,
+  },
+];
