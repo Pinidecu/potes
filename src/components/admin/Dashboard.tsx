@@ -1,43 +1,162 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, UtensilsCrossed, Package, BarChart3 } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useSnackbar } from 'notistack';
+import { makeQuery } from '../../utils/api';
+
+interface Ingredient {
+  _id: string
+  name: string
+  priceAsExtra: number
+  type: string
+}
+
+interface Salad {
+  _id: string
+  name: string
+  description?: string
+  price: number
+  image: string
+}
+
+interface CartItem {
+  salad: string
+  quantity: number
+  removedIngredients: string
+  extra: string[]
+}
+
+interface Customer {
+  name: string
+  email: string
+  address: string
+}
+
+interface Order {
+  _id: string
+  cart: {
+    salad: Salad | string
+    quantity: number
+    removedIngredients: string
+    extra: (Ingredient | string)[]
+  }[]
+  totalPrice: number
+  customer: Customer
+  status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled"
+  createdAt?: string
+  updatedAt?: string
+}
 
 const Dashboard: React.FC = () => {
-  const { orders, salads, ingredients } = useApp();
+  const [statsData, setStatsData] = useState({
+    totalOrders: 0,
+    totalSalads: 0,
+    totalIngredients: 0,
+    activeOrders: 0,
+  })
+    const [orders, setOrders] = useState<Order[]>([])
+  const {enqueueSnackbar} = useSnackbar();
 
   const stats = [
     {
       title: 'Pedidos Totales',
-      value: orders.length,
+      value: statsData.totalOrders,
       icon: <ShoppingBag size={24} />,
       color: 'bg-blue-500',
       link: '/admin/orders',
     },
     {
       title: 'Pedidos Pendientes',
-      value: orders.filter(order => order.status === 'Pendiente').length,
+      value: statsData.activeOrders,
       icon: <BarChart3 size={24} />,
       color: 'bg-yellow-500',
       link: '/admin/orders',
     },
     {
       title: 'Ensaladas Activas',
-      value: salads.filter(salad => salad.active).length,
+      value: statsData.totalSalads,
       icon: <UtensilsCrossed size={24} />,
       color: 'bg-green-500',
       link: '/admin/salads',
     },
     {
       title: 'Ingredientes',
-      value: ingredients.length,
+      value: statsData.totalIngredients,
       icon: <Package size={24} />,
       color: 'bg-purple-500',
       link: '/admin/ingredients',
     },
   ];
 
+  const fetchData = async () => {
+    makeQuery(
+      localStorage.getItem('token'),
+      'getStats',
+      '',
+      enqueueSnackbar,
+      (data) => setStatsData(data),
+    );
+  };
+  
+  
+    const fetchOrders = async () => {
+      await makeQuery(
+        null,
+        "getOrders",
+        {},
+        enqueueSnackbar,
+        (data) => {
+          setOrders(data)
+        },
+      )
+    }
+  
+
+  useEffect(() => {
+    fetchData();
+    fetchOrders();
+  }, []);
+
   const recentOrders = orders.slice(-5).reverse();
+  
+
+  const getSaladName = (salad: Salad | string): string => {
+    if (typeof salad === "string") return "N/A"
+    return salad.name
+  }
+
+  const getIngredientNames = (extras: (Ingredient | string)[]): string => {
+    return extras.map((e) => (typeof e === "string" ? "N/A" : e.name)).join(", ") || "Ninguno"
+  }
+  
+
+  const formatDate = (date?: string): string => {
+    if (!date) return "N/A"
+    return new Date(date).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case "Pending":
+        return "bg-yellow-100 text-yellow-800"
+      case "In Progress":
+        return "bg-blue-100 text-blue-800"
+      case "Shipped":
+        return "bg-purple-100 text-purple-800"
+      case "Delivered":
+        return "bg-green-100 text-green-800"
+      case "Cancelled":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
 
   return (
     <div className="p-6">
@@ -73,32 +192,62 @@ const Dashboard: React.FC = () => {
         {recentOrders.length === 0 ? (
           <p className="text-gray-600">No hay pedidos recientes</p>
         ) : (
-          <div className="space-y-4">
-            {recentOrders.map((order) => (
-              <div key={order.id} className="border-b last:border-b-0 pb-4 last:pb-0">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium">
-                      {order.customer.nombre} {order.customer.apellido}
-                    </p>
-                    <p className="text-sm text-gray-600">{order.customer.telefono}</p>
-                    <p className="text-sm text-gray-600">{order.date} - {order.time}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">${order.total.toLocaleString('es-AR')}</p>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      order.status === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                      order.status === 'Preparado' ? 'bg-blue-100 text-blue-800' :
-                      order.status === 'En entrega' ? 'bg-orange-100 text-orange-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {order.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cliente
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Carrito
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fecha
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {orders.map((order) => (
+                    <tr key={order._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
+                        <div className="text-sm text-gray-500">{order.customer.email}</div>
+                        <div className="text-sm text-gray-500">{order.customer.address}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">
+                          {order.cart.map((item, idx) => (
+                            <div key={idx} className="mb-2">
+                              <span className="font-medium">{getSaladName(item.salad)}</span>
+                              <span className="text-gray-500"> x{item.quantity}</span>
+                              {item.extra.length > 0 && (
+                                <div className="text-xs text-gray-500 ml-2">
+                                  Extras: {getIngredientNames(item.extra)}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">${order.totalPrice.toFixed(2)}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
         )}
       </div>
     </div>

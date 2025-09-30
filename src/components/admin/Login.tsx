@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useApp();
   const [credentials, setCredentials] = useState({
     username: '',
     password: '',
   });
   const [error, setError] = useState('');
+
+  const login = (username: string, password: string): boolean => {
+    // Simulated login logic
+    return username === 'admin' && password === 'potes123';
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

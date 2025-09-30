@@ -1,204 +1,871 @@
-import React, { useState } from 'react';
-import { Phone, MapPin, Package } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
-import { Order } from '../../types';
+"use client"
 
-const Orders: React.FC = () => {
-  const { orders, updateOrderStatus, ingredients } = useApp();
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+import { useState, useEffect } from "react"
+import { makeQuery } from "../../utils/api"
+import Select from "react-select"
+import { useSnackbar } from "notistack"
 
-  const formatPrice = (price: number) => {
-    return `$${price.toLocaleString('es-AR')}`;
-  };
+interface Ingredient {
+  _id: string
+  name: string
+  priceAsExtra: number
+  type: string
+}
 
-  const getStatusColor = (status: Order['status']) => {
-    switch (status) {
-      case 'Pendiente':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'Preparado':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'En entrega':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'Completado':
-        return 'bg-green-100 text-green-800 border-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+interface Salad {
+  _id: string
+  name: string
+  description?: string
+  price: number
+  image: string
+}
+
+interface CartItem {
+  salad: string
+  quantity: number
+  removedIngredients: string
+  extra: string[]
+}
+
+interface Customer {
+  name: string
+  email: string
+  address: string
+}
+
+interface Order {
+  _id: string
+  cart: {
+    salad: Salad | string
+    quantity: number
+    removedIngredients: string
+    extra: (Ingredient | string)[]
+  }[]
+  totalPrice: number
+  customer: Customer
+  status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled"
+  createdAt?: string
+  updatedAt?: string
+}
+
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [salads, setSalads] = useState<Salad[]>([])
+  const [ingredients, setIngredients] = useState<Ingredient[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+  const { enqueueSnackbar } = useSnackbar();
+
+  // Form state
+  const [formData, setFormData] = useState<{
+    cart: CartItem[]
+    totalPrice: number
+    customer: Customer
+    status: string
+  }>({
+    cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
+    totalPrice: 0,
+    customer: { name: "", email: "", address: "" },
+    status: "Pending",
+  })
+
+  useEffect(() => {
+    fetchOrders()
+    fetchSalads()
+    fetchIngredients()
+  }, [])
+
+  const fetchOrders = async () => {
+    await makeQuery(
+      null,
+      "getOrders",
+      {},
+      enqueueSnackbar,
+      (data) => {
+        setOrders(data)
+      },
+      setLoading,
+    )
+  }
+
+  const fetchSalads = async () => {
+    await makeQuery(
+      null,
+      "getSalads",
+      {},
+      enqueueSnackbar,
+      (data) => {
+        setSalads(data)
+      },
+      undefined,
+    )
+  }
+
+  const fetchIngredients = async () => {
+    await makeQuery(
+      null,
+      "getIngredients",
+      {},
+      enqueueSnackbar,
+      (data) => {
+        setIngredients(data)
+      },
+      undefined,
+    )
+  }
+
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }
+
+  const resetForm = () => {
+    setFormData({
+      cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
+      totalPrice: 0,
+      customer: { name: "", email: "", address: "" },
+      status: "Pending",
+    })
+  }
+
+  const handleCreate = async () => {
+    if (!formData.customer.name || !formData.customer.email || !formData.customer.address) {
+      showNotification("Por favor completa todos los campos del cliente", "error")
+      return
     }
-  };
 
-  const statusOptions: Order['status'][] = ['Pendiente', 'Preparado', 'En entrega', 'Completado'];
+    if (formData.cart.length === 0 || !formData.cart[0].salad) {
+      showNotification("Por favor agrega al menos una ensalada al carrito", "error")
+      return
+    }
+
+    await makeQuery(
+      null,
+      "createOrder",
+      formData,
+      enqueueSnackbar,
+      () => {
+        showNotification("Orden creada exitosamente", "success")
+        setShowCreateModal(false)
+        resetForm()
+        fetchOrders()
+      },
+      setLoading,
+    )
+  }
+
+  const handleEdit = async () => {
+    if (!selectedOrder || !formData.customer.name || !formData.customer.email || !formData.customer.address) {
+      showNotification("Por favor completa todos los campos del cliente", "error")
+      return
+    }
+
+    if (formData.cart.length === 0 || !formData.cart[0].salad) {
+      showNotification("Por favor agrega al menos una ensalada al carrito", "error")
+      return
+    }
+
+    await makeQuery(
+      null,
+      "updateOrder",
+      {
+        id: selectedOrder._id,
+        ...formData,
+      },
+      enqueueSnackbar,
+      () => {
+        showNotification("Orden actualizada exitosamente", "success")
+        setShowEditModal(false)
+        setSelectedOrder(null)
+        resetForm()
+        fetchOrders()
+      },
+      setLoading,
+    )
+  }
+
+  const handleDelete = async () => {
+    if (!selectedOrder) return
+
+    await makeQuery(
+      null,
+      "deleteOrder",
+      selectedOrder._id,
+      enqueueSnackbar,
+      () => {
+        showNotification("Orden eliminada exitosamente", "success")
+        setShowDeleteModal(false)
+        setSelectedOrder(null)
+        fetchOrders()
+      },
+      setLoading,
+    )
+  }
+
+  const openEditModal = (order: Order) => {
+    setSelectedOrder(order)
+    setFormData({
+      cart: order.cart.map((item) => ({
+        salad: typeof item.salad === "string" ? item.salad : item.salad._id,
+        removedIngredients: item.removedIngredients,
+        quantity: item.quantity,
+        extra: item.extra.map((e) => (typeof e === "string" ? e : e._id)),
+      })),
+      totalPrice: order.totalPrice,
+      customer: order.customer,
+      status: order.status,
+    })
+    setShowEditModal(true)
+  }
+
+  const openDeleteModal = (order: Order) => {
+    setSelectedOrder(order)
+    setShowDeleteModal(true)
+  }
+
+  const addCartItem = () => {
+    setFormData({
+      ...formData,
+      cart: [...formData.cart, { salad: "", quantity: 1, extra: [], removedIngredients: "" }],
+    })
+  }
+
+  const removeCartItem = (index: number) => {
+    const newCart = formData.cart.filter((_, i) => i !== index)
+    setFormData({ ...formData, cart: newCart })
+  }
+
+  const updateCartItem = (index: number, field: keyof CartItem, value: any) => {
+    const newCart = [...formData.cart]
+    newCart[index] = { ...newCart[index], [field]: value }
+    setFormData({ ...formData, cart: newCart })
+  }
+
+  const toggleExtra = (cartIndex: number, ingredientId: string) => {
+    const newCart = [...formData.cart]
+    const extras = newCart[cartIndex].extra
+    if (extras.includes(ingredientId)) {
+      newCart[cartIndex].extra = extras.filter((id) => id !== ingredientId)
+    } else {
+      newCart[cartIndex].extra = [...extras, ingredientId]
+    }
+    setFormData({ ...formData, cart: newCart })
+  }
+
+  const getSaladName = (salad: Salad | string): string => {
+    if (typeof salad === "string") return "N/A"
+    return salad.name
+  }
+
+  const getIngredientNames = (extras: (Ingredient | string)[]): string => {
+    return extras.map((e) => (typeof e === "string" ? "N/A" : e.name)).join(", ") || "Ninguno"
+  }
+
+  const formatDate = (date?: string): string => {
+    if (!date) return "N/A"
+    return new Date(date).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case "Pending":
+        return "bg-yellow-100 text-yellow-800"
+      case "In Progress":
+        return "bg-blue-100 text-blue-800"
+      case "Shipped":
+        return "bg-purple-100 text-purple-800"
+      case "Delivered":
+        return "bg-green-100 text-green-800"
+      case "Cancelled":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
 
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Gestión de Pedidos</h1>
-        <p className="text-gray-600">Administra todos los pedidos del negocio</p>
-      </div>
-
-      {orders.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <Package size={48} className="text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-600 mb-2">No hay pedidos</h2>
-          <p className="text-gray-500">Los pedidos aparecerán aquí cuando se realicen</p>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Gestión de Órdenes</h1>
+          <button
+            onClick={() => {
+              resetForm()
+              setShowCreateModal(true)
+            }}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            + Nueva Orden
+          </button>
         </div>
-      ) : (
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Lista de pedidos */}
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className={`bg-white rounded-lg shadow-md p-4 cursor-pointer transition-all ${
-                  selectedOrder?.id === order.id ? 'ring-2 ring-green-500' : 'hover:shadow-lg'
-                }`}
-                onClick={() => setSelectedOrder(order)}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold text-lg">
-                      {order.customer.nombre} {order.customer.apellido}
-                    </h3>
-                    <p className="text-gray-600 text-sm">
-                      Pedido #{order.id.split('-').pop()}
-                    </p>
-                  </div>
-                  <span className={`px-2 py-1 rounded border text-sm font-medium ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
-                </div>
 
-                <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                  <span className="flex items-center gap-1">
-                    <Phone size={14} />
-                    {order.customer.telefono}
-                  </span>
-                  <span>{order.date} - {order.time}</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">
-                    {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
-                  </span>
-                  <span className="font-semibold text-green-600">
-                    {formatPrice(order.total)}
-                  </span>
-                </div>
-              </div>
-            ))}
+        {/* Notification */}
+        {notification && (
+          <div
+            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${notification.type === "success" ? "bg-green-500" : "bg-red-500"
+              } text-white`}
+          >
+            {notification.message}
           </div>
+        )}
 
-          {/* Detalle del pedido seleccionado */}
-          <div className="sticky top-4">
-            {selectedOrder ? (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="border-b pb-4 mb-4">
-                  <h2 className="text-xl font-semibold mb-2">
-                    Pedido #{selectedOrder.id.split('-').pop()}
-                  </h2>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span>Estado:</span>
-                    <select
-                      value={selectedOrder.status}
-                      onChange={(e) => updateOrderStatus(selectedOrder.id, e.target.value as Order['status'])}
-                      className="border border-gray-300 rounded px-2 py-1"
-                    >
-                      {statusOptions.map(status => (
-                        <option key={status} value={status}>{status}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className="text-gray-600">{selectedOrder.date} - {selectedOrder.time}</p>
-                </div>
-
-                {/* Información del cliente */}
-                <div className="mb-6">
-                  <h3 className="font-semibold mb-3">Datos del cliente</h3>
-                  <div className="space-y-2 text-sm">
-                    <p><strong>Nombre:</strong> {selectedOrder.customer.nombre} {selectedOrder.customer.apellido}</p>
-                    <p className="flex items-center gap-2">
-                      <Phone size={14} />
-                      {selectedOrder.customer.telefono}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <MapPin size={14} />
-                      {selectedOrder.customer.direccion}
-                    </p>
-                    {selectedOrder.customer.gps && (
-                      <p className="text-gray-600">
-                        <strong>GPS:</strong> {selectedOrder.customer.gps}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Items del pedido */}
-                <div className="mb-6">
-                  <h3 className="font-semibold mb-3">Items del pedido</h3>
-                  <div className="space-y-4">
-                    {selectedOrder.items.map((item) => (
-                      <div key={item.id} className="border rounded-lg p-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium">{item.salad.name}</h4>
-                          <span className="font-semibold">{formatPrice(item.totalPrice)}</span>
-                        </div>
-                        
-                        <div className="text-sm text-gray-600 mb-2">
-                          <span className="font-medium">Ingredientes:</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {item.selectedIngredients.map(ingredientId => {
-                              const ingredient = ingredients.find(i => i.id === ingredientId);
-                              return ingredient ? (
-                                <span key={ingredientId} className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs">
-                                  {ingredient.name}
-                                </span>
-                              ) : null;
-                            })}
-                          </div>
-                        </div>
-
-                        {item.extraIngredients.length > 0 && (
-                          <div className="text-sm text-gray-600">
-                            <span className="font-medium">Extras:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {item.extraIngredients.map(ingredientId => {
-                                const ingredient = ingredients.find(i => i.id === ingredientId);
-                                return ingredient ? (
-                                  <span key={ingredientId} className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">
-                                    +{ingredient.name}
-                                  </span>
-                                ) : null;
-                              })}
+        {/* Table */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">Cargando órdenes...</div>
+          ) : orders.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No hay órdenes registradas</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cliente
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Carrito
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fecha
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {orders.map((order) => (
+                    <tr key={order._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
+                        <div className="text-sm text-gray-500">{order.customer.email}</div>
+                        <div className="text-sm text-gray-500">{order.customer.address}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">
+                          {order.cart.map((item, idx) => (
+                            <div key={idx} className="mb-2">
+                              <span className="font-medium">{getSaladName(item.salad)}</span>
+                              <span className="text-gray-500"> x{item.quantity}</span>
+                              {item.extra.length > 0 && (
+                                <div className="text-xs text-gray-500 ml-2">
+                                  Extras: {getIngredientNames(item.extra)}
+                                </div>
+                              )}
                             </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">${order.totalPrice.toFixed(2)}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
+                      <td className="px-6 py-4 text-sm font-medium space-x-2">
+                        <button onClick={() => openEditModal(order)} className="text-blue-600 hover:text-blue-900">
+                          Editar
+                        </button>
+                        <button onClick={() => openDeleteModal(order)} className="text-red-600 hover:text-red-900">
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Create Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">Nueva Orden</h2>
+              </div>
+              <div className="p-6 space-y-6">
+                {/* Customer Info */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Cliente</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+                      <input
+                        type="text"
+                        value={formData.customer.name}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, name: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Nombre del cliente"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                      <input
+                        type="email"
+                        value={formData.customer.email}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, email: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="email@ejemplo.com"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
+                      <input
+                        type="text"
+                        value={formData.customer.address}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, address: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Dirección de entrega"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cart Items */}
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Carrito</h3>
+                    <button
+                      onClick={addCartItem}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      + Agregar Item
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {formData.cart.map((item, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-4">
+                          <h4 className="font-medium text-gray-900">Item {index + 1}</h4>
+                          {formData.cart.length > 1 && (
+                            <button
+                              onClick={() => removeCartItem(index)}
+                              className="text-red-600 hover:text-red-900 text-sm"
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Ensalada *</label>
+                            <Select
+                              value={
+                                item.salad
+                                  ? {
+                                    value: item.salad,
+                                    label: salads.find((s) => s._id === item.salad)?.name || "Seleccionar",
+                                  }
+                                  : null
+                              }
+                              onChange={(option) => updateCartItem(index, "salad", option?.value || "")}
+                              options={salads.map((salad) => ({
+                                value: salad._id,
+                                label: `${salad.name} - $${salad.price}`,
+                              }))}
+                              placeholder="Seleccionar ensalada"
+                              styles={{
+                                control: (base) => ({
+                                  ...base,
+                                  borderColor: "#d1d5db",
+                                  "&:hover": { borderColor: "#d1d5db" },
+                                }),
+                              }}
+                            />
                           </div>
-                        )}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad *</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateCartItem(index, "quantity", Number.parseInt(e.target.value) || 1)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{item.removedIngredients}</label>
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Extras</label>
+                            <Select
+                              isMulti
+                              value={ingredients
+                                .filter((ing) => item.extra.includes(ing._id))
+                                .map((ing) => ({
+                                  value: ing._id,
+                                  label: `${ing.name} (+$${ing.priceAsExtra})`,
+                                }))}
+                              onChange={(selected) =>
+                                updateCartItem(index, "extra", selected ? selected.map((s) => s.value) : [])
+                              }
+                              options={ingredients.map((ing) => ({
+                                value: ing._id,
+                                label: `${ing.name} (+$${ing.priceAsExtra})`,
+                              }))}
+                              placeholder="Seleccionar extras..."
+                              styles={{
+                                control: (base) => ({
+                                  ...base,
+                                  borderColor: "#d1d5db",
+                                  "&:hover": { borderColor: "#d1d5db" },
+                                }),
+                              }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center text-lg font-bold">
-                    <span>Total:</span>
-                    <span className="text-green-600">{formatPrice(selectedOrder.total)}</span>
+                {/* Total Price and Status */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Precio Total *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.totalPrice}
+                      onChange={(e) => setFormData({ ...formData, totalPrice: Number.parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Estado *</label>
+                    <Select
+                      value={{ value: formData.status, label: formData.status }}
+                      onChange={(option) => setFormData({ ...formData, status: option?.value || "Pending" })}
+                      options={[
+                        { value: "Pending", label: "Pending" },
+                        { value: "In Progress", label: "In Progress" },
+                        { value: "Shipped", label: "Shipped" },
+                        { value: "Delivered", label: "Delivered" },
+                        { value: "Cancelled", label: "Cancelled" },
+                      ]}
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          borderColor: "#d1d5db",
+                          "&:hover": { borderColor: "#d1d5db" },
+                        }),
+                      }}
+                    />
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center">
-                <Package size={48} className="text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                  Selecciona un pedido
-                </h3>
-                <p className="text-gray-500">
-                  Haz clic en un pedido para ver los detalles
-                </p>
+              <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    resetForm()
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCreate}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Crear Orden
+                </button>
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
+        )}
 
-export default Orders;
+        {/* Edit Modal */}
+        {showEditModal && selectedOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">Editar Orden</h2>
+              </div>
+              <div className="p-6 space-y-6">
+                {/* Customer Info */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Cliente</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
+                      <input
+                        type="text"
+                        value={formData.customer.name}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, name: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Nombre del cliente"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                      <input
+                        type="email"
+                        value={formData.customer.email}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, email: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="email@ejemplo.com"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
+                      <input
+                        type="text"
+                        value={formData.customer.address}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, address: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Dirección de entrega"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cart Items */}
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Carrito</h3>
+                    <button
+                      onClick={addCartItem}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      + Agregar Item
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {formData.cart.map((item, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-4">
+                          <h4 className="font-medium text-gray-900">Item {index + 1}</h4>
+                          {formData.cart.length > 1 && (
+                            <button
+                              onClick={() => removeCartItem(index)}
+                              className="text-red-600 hover:text-red-900 text-sm"
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Ensalada *</label>
+                            <Select
+                              value={
+                                item.salad
+                                  ? {
+                                    value: item.salad,
+                                    label: salads.find((s) => s._id === item.salad)?.name || "Seleccionar",
+                                  }
+                                  : null
+                              }
+                              onChange={(option) => updateCartItem(index, "salad", option?.value || "")}
+                              options={salads.map((salad) => ({
+                                value: salad._id,
+                                label: `${salad.name} - $${salad.price}`,
+                              }))}
+                              placeholder="Seleccionar ensalada"
+                              styles={{
+                                control: (base) => ({
+                                  ...base,
+                                  borderColor: "#d1d5db",
+                                  "&:hover": { borderColor: "#d1d5db" },
+                                }),
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad *</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateCartItem(index, "quantity", Number.parseInt(e.target.value) || 1)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{item.removedIngredients}</label>
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Extras</label>
+                            <Select
+                              isMulti
+                              value={ingredients
+                                .filter((ing) => item.extra.includes(ing._id))
+                                .map((ing) => ({
+                                  value: ing._id,
+                                  label: `${ing.name} (+$${ing.priceAsExtra})`,
+                                }))}
+                              onChange={(selected) =>
+                                updateCartItem(index, "extra", selected ? selected.map((s) => s.value) : [])
+                              }
+                              options={ingredients.map((ing) => ({
+                                value: ing._id,
+                                label: `${ing.name} (+$${ing.priceAsExtra})`,
+                              }))}
+                              placeholder="Seleccionar extras..."
+                              styles={{
+                                control: (base) => ({
+                                  ...base,
+                                  borderColor: "#d1d5db",
+                                  "&:hover": { borderColor: "#d1d5db" },
+                                }),
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Total Price and Status */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Precio Total *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.totalPrice}
+                      onChange={(e) => setFormData({ ...formData, totalPrice: Number.parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Estado *</label>
+                    <Select
+                      value={{ value: formData.status, label: formData.status }}
+                      onChange={(option) => setFormData({ ...formData, status: option?.value || "Pending" })}
+                      options={[
+                        { value: "Pending", label: "Pending" },
+                        { value: "In Progress", label: "In Progress" },
+                        { value: "Shipped", label: "Shipped" },
+                        { value: "Delivered", label: "Delivered" },
+                        { value: "Cancelled", label: "Cancelled" },
+                      ]}
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          borderColor: "#d1d5db",
+                          "&:hover": { borderColor: "#d1d5db" },
+                        }),
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setSelectedOrder(null)
+                    resetForm()
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleEdit}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && selectedOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Confirmar Eliminación</h2>
+                <p className="text-gray-600 mb-6">
+                  ¿Estás seguro de que deseas eliminar la orden de <strong>{selectedOrder.customer.name}</strong>? Esta
+                  acción no se puede deshacer.
+                </p>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false)
+                      setSelectedOrder(null)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

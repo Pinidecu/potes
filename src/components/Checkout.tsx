@@ -1,54 +1,78 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapPin, Phone, User, CheckCircle } from 'lucide-react';
-import { useApp } from '../context/AppContext';
-import { Customer } from '../types';
+"use client"
 
-const Checkout: React.FC = () => {
-  const navigate = useNavigate();
-  const { cart, getCartTotal, addOrder, clearCart, ingredients } = useApp();
-  const [customer, setCustomer] = useState<Customer>({
-    nombre: '',
-    apellido: '',
-    telefono: '',
-    direccion: '',
-    gps: '-34.6118, -58.3960', // Buenos Aires coordinates as default
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderCompleted, setOrderCompleted] = useState(false);
+import type React from "react"
 
-  const formatPrice = (price: number) => {
-    return `$${price.toLocaleString('es-AR')}`;
-  };
+import { useState } from "react"
+import { useCart } from "../utils/useCart"
+import { makeQuery } from "../utils/api"
+import { Trash2, CheckCircle, ShoppingCart } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { useSnackbar } from "notistack"
+
+export default function CheckoutPage() {
+  const navigate = useNavigate()
+  const { cartItems, removeFromCart, updateQuantity, clearCart, getTotal } = useCart()
+  const [customer, setCustomer] = useState({
+    name: "",
+    email: "",
+    address: "",
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [orderCompleted, setOrderCompleted] = useState(false)
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+  const {enqueueSnackbar} = useSnackbar()
+  console.log(cartItems)
+
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCustomer(prev => ({ ...prev, [name]: value }));
-  };
+    const { name, value } = e.target
+    setCustomer((prev) => ({ ...prev, [name]: value }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!customer.nombre || !customer.apellido || !customer.telefono || !customer.direccion) {
-      alert('Por favor completá todos los campos requeridos');
-      return;
+    e.preventDefault()
+
+    if (!customer.name || !customer.email || !customer.address) {
+      showNotification("Por favor completá todos los campos requeridos", "error")
+      return
     }
 
-    if (cart.length === 0) {
-      alert('Tu carrito está vacío');
-      return;
+    if (cartItems.length === 0) {
+      showNotification("Tu carrito está vacío", "error")
+      return
     }
 
-    setIsSubmitting(true);
+    const orderData = {
+      cart: cartItems.map((item) => ({
+        salad: item.salad._id,
+        quantity: item.quantity,
+        removedIngredients: item.removedIngredients,
+        extra: item.extra.map((ing) => ing._id),
+      })),
+      totalPrice: getTotal(),
+      customer: {
+        name: customer.name,
+        email: customer.email,
+        address: customer.address,
+      },
+    }
 
-    // Simular delay de procesamiento
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    addOrder(customer, cart);
-    clearCart();
-    setOrderCompleted(true);
-    setIsSubmitting(false);
-  };
+    makeQuery(
+      "",
+      "createOrder",
+      orderData,
+      enqueueSnackbar,
+      () => {
+        clearCart()
+        setOrderCompleted(true)
+      },
+      setIsSubmitting,
+    )
+  }
 
   if (orderCompleted) {
     return (
@@ -62,179 +86,196 @@ const Checkout: React.FC = () => {
             Gracias por tu pedido. Te contactaremos pronto para confirmar la entrega.
           </p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/menu")}
             className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
           >
-            Volver al inicio
+            Volver al menú
           </button>
         </div>
       </div>
-    );
+    )
   }
 
-  if (cart.length === 0) {
+  if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <ShoppingCart size={64} className="mx-auto text-gray-400 mb-4" />
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Tu carrito está vacío</h1>
           <p className="text-gray-600 mb-6">Agregá algunas ensaladas antes de finalizar tu pedido</p>
           <button
-            onClick={() => navigate('/menu')}
+            onClick={() => navigate("/menu")}
             className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
           >
             Ver menú
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+      {notification && (
+        <div
+          className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+            notification.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
+          }`}
+        >
+          {notification.message}
+        </div>
+      )}
+
+      <div className="max-w-6xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">Finalizar Pedido</h1>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Resumen del pedido */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-6">Resumen de tu pedido</h2>
             <div className="space-y-4">
-              {cart.map((item) => (
-                <div key={item.id} className="border-b pb-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-medium">{item.salad.name}</h3>
-                    <span className="font-semibold">{formatPrice(item.totalPrice)}</span>
-                  </div>
-                  
-                  {/* Ingredientes incluidos */}
-                  <div className="text-sm text-gray-600 mb-2">
-                    <span className="font-medium">Incluye:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {item.selectedIngredients.map(ingredientId => {
-                        const ingredient = ingredients.find(i => i.id === ingredientId);
-                        return ingredient ? (
-                          <span key={ingredientId} className="bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                            {ingredient.name}
-                          </span>
-                        ) : null;
-                      })}
-                    </div>
-                  </div>
+              {cartItems.map((item, index) => {
+                const extrasPrice = item.extra.reduce((sum, ing) => sum + ing.priceAsExtra, 0)
+                const itemTotal = (item.salad.price + extrasPrice) * item.quantity
 
-                  {/* Ingredientes extra */}
-                  {item.extraIngredients.length > 0 && (
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium">Extras:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {item.extraIngredients.map(ingredientId => {
-                          const ingredient = ingredients.find(i => i.id === ingredientId);
-                          return ingredient ? (
-                            <span key={ingredientId} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                              {ingredient.name} (+{formatPrice(ingredient.price)})
-                            </span>
-                          ) : null;
-                        })}
+                return (
+                  <div key={index} className="border-b pb-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <h3 className="font-medium">{item.salad.name}</h3>
+                        <p className="text-sm text-gray-500">{item.salad.description}</p>
                       </div>
+                      <button
+                        onClick={() => removeFromCart(index)}
+                        className="text-red-600 hover:text-red-700 ml-2"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
-                  )}
-                </div>
-              ))}
-              
+
+                    {/* Base ingredients */}
+                    <div className="text-sm text-gray-600 mb-2">
+                      <span className="font-medium">Base:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {item.salad.base
+                          .map((ingredient) => (
+                            <span
+                              key={ingredient._id}
+                              className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs"
+                            >
+                              {ingredient.name}
+                            </span>
+                          ))}
+                      </div>
+
+                      {item.removedIngredients && <div className="text-sm text-gray-600 mb-2">
+                        <span className="font-medium">Sin:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            <span
+                              className="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs line-through"
+                            >
+                              {item.removedIngredients}
+                            </span>
+                        </div>
+                      </div>}
+                    </div>
+
+                    {/* Extra ingredients */}
+                    {item.extra.length > 0 && (
+                      <div className="text-sm text-gray-600 mb-2">
+                        <span className="font-medium">Extras:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {item.extra.map((ingredient) => (
+                            <span
+                              key={ingredient._id}
+                              className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs"
+                            >
+                              {ingredient.name} (+${ingredient.priceAsExtra})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quantity controls */}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateQuantity(index, item.quantity - 1)}
+                          className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                        >
+                          -
+                        </button>
+                        <span className="w-8 text-center font-medium">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(index, item.quantity + 1)}
+                          className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="font-semibold">${itemTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )
+              })}
+
               <div className="flex justify-between items-center text-xl font-bold pt-4">
                 <span>Total:</span>
-                <span className="text-green-600">{formatPrice(getCartTotal())}</span>
+                <span className="text-green-600">${getTotal().toFixed(2)}</span>
               </div>
             </div>
           </div>
 
-          {/* Formulario de datos */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-6">Datos de entrega</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-2">
-                    <User size={16} className="inline mr-1" />
-                    Nombre *
-                  </label>
-                  <input
-                    type="text"
-                    id="nombre"
-                    name="nombre"
-                    required
-                    value={customer.nombre}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Tu nombre"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="apellido" className="block text-sm font-medium text-gray-700 mb-2">
-                    Apellido *
-                  </label>
-                  <input
-                    type="text"
-                    id="apellido"
-                    name="apellido"
-                    required
-                    value={customer.apellido}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Tu apellido"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label htmlFor="telefono" className="block text-sm font-medium text-gray-700 mb-2">
-                  <Phone size={16} className="inline mr-1" />
-                  Teléfono *
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre completo *
                 </label>
                 <input
-                  type="tel"
-                  id="telefono"
-                  name="telefono"
+                  type="text"
+                  id="name"
+                  name="name"
                   required
-                  value={customer.telefono}
+                  value={customer.name}
                   onChange={handleInputChange}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="+54 11 1234-5678"
+                  placeholder="Tu nombre completo"
                 />
               </div>
 
               <div>
-                <label htmlFor="direccion" className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin size={16} className="inline mr-1" />
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  required
+                  value={customer.email}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="tu@email.com"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
                   Dirección de entrega *
                 </label>
                 <input
                   type="text"
-                  id="direccion"
-                  name="direccion"
+                  id="address"
+                  name="address"
                   required
-                  value={customer.direccion}
+                  value={customer.address}
                   onChange={handleInputChange}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Calle, número, piso, depto"
                 />
-              </div>
-
-              <div>
-                <label htmlFor="gps" className="block text-sm font-medium text-gray-700 mb-2">
-                  Coordenadas GPS (opcional)
-                </label>
-                <input
-                  type="text"
-                  id="gps"
-                  name="gps"
-                  value={customer.gps}
-                  onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="-34.6118, -58.3960"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Las coordenadas GPS nos ayudan a encontrarte más fácil
-                </p>
               </div>
 
               <button
@@ -248,7 +289,7 @@ const Checkout: React.FC = () => {
                     Procesando...
                   </>
                 ) : (
-                  'Confirmar pedido'
+                  "Confirmar pedido"
                 )}
               </button>
             </form>
@@ -256,7 +297,5 @@ const Checkout: React.FC = () => {
         </div>
       </div>
     </div>
-  );
-};
-
-export default Checkout;
+  )
+}
