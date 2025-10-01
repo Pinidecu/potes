@@ -9,7 +9,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Section */}
           <div className="space-y-4">
-            <h3 className="text-2xl font-bold text-green-400">Potes</h3>
+            <h3 className="text-2xl font-bold text-green-400">PÓTE</h3>
             <p className="text-gray-300">
               En Potes, cada ensalada es un momento fresco.
             </p>

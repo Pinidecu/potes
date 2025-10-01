@@ -12,7 +12,7 @@ const Login: React.FC = () => {
 
   const login = (username: string, password: string): boolean => {
     // Simulated login logic
-    return username === 'admin' && password === 'potes123';
+    return username === 'ezequieldecu@gmail.com' && password === '123456';
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -21,7 +21,7 @@ const Login: React.FC = () => {
     if (login(credentials.username, credentials.password)) {
       navigate('/admin');
     } else {
-      setError('Credenciales inválidas. Intenta con admin / potes123');
+      setError('Credenciales inválidas.');
     }
   };
 
@@ -83,11 +83,11 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
+        {/* <div className="mt-6 text-center text-sm text-gray-600">
           <p>Credenciales de demo:</p>
           <p>Usuario: <code className="bg-gray-100 px-1 rounded">admin</code></p>
           <p>Contraseña: <code className="bg-gray-100 px-1 rounded">potes123</code></p>
-        </div>
+        </div> */}
       </div>
     </div>
   );

@@ -6,6 +6,12 @@ import { useEffect, useState } from "react"
 import { makeQuery } from "../../utils/api"
 import Select, { MultiValue } from "react-select"
 
+const filterTypeOptions = [
+    { value: "all", label: "Todos" },
+    { value: "Ensalada", label: "Ensalada" },
+    { value: "Tarta", label: "Tarta" },
+]
+
 type Option = { value: string; label: string }
 
 interface Ingredient {
@@ -20,7 +26,6 @@ interface Salad {
     name: string
     description: string
     base: any[]
-    extras: any[]
     price: number
     image: string
 }
@@ -37,14 +42,19 @@ export default function SaladsPage() {
         name: "",
         description: "",
         base: [] as string[],
-        extras: [] as string[],
         price: "",
+        type: "Ensalada",
         image: null as File | null,
     })
     const [snackbar, setSnackbar] = useState<{
         message: string
         variant: "error" | "success" | "info" | "warning"
     } | null>(null)
+
+    const [searchName, setSearchName] = useState("")
+    const [filterType, setFilterType] = useState<{ value: string; label: string } | null>(
+        { value: "all", label: "Todos" }
+    )
 
     const showSnackbar = (message: string, options?: { variant: "error" | "success" | "info" | "warning" }) => {
         setSnackbar({ message, variant: options?.variant || "info" })
@@ -55,7 +65,10 @@ export default function SaladsPage() {
         await makeQuery(
             null,
             "getSalads",
-            {},
+            {
+                name: searchName || undefined,
+                type: filterType && filterType.value !== "all" ? filterType.value : undefined,
+            },
             showSnackbar,
             (data) => {
                 setSalads(data)
@@ -78,12 +91,15 @@ export default function SaladsPage() {
     }
 
     useEffect(() => {
-        loadSalads()
         loadIngredients()
     }, [])
 
+    useEffect(() => {
+        loadSalads()
+    }, [searchName, filterType]);
+
     const handleCreateOpen = () => {
-        setFormData({ name: "", description: "", base: [], extras: [], price: "", image: "" })
+        setFormData({ name: "", description: "", base: [], price: "", image: "" })
         setIsCreateModalOpen(true)
     }
 
@@ -94,7 +110,6 @@ export default function SaladsPage() {
             name: salad.name,
             description: salad.description,
             base: salad.base.map((item) => item._id.toString()),
-            extras: salad.extras.map((item) => item._id.toString()),
             price: salad.price.toString(),
             image: salad.image,
         })
@@ -119,7 +134,7 @@ export default function SaladsPage() {
         formDataToSend.append("description", formData.description)
         formDataToSend.append("price", formData.price)
         formDataToSend.append("base", JSON.stringify(formData.base))
-        formDataToSend.append("extras", JSON.stringify(formData.extras))
+        formDataToSend.append("type", formData.type)
         if (formData.image) formDataToSend.append("image", formData.image)
 
         await makeQuery(
@@ -153,8 +168,8 @@ export default function SaladsPage() {
         formDataToSend.append("name", formData.name)
         formDataToSend.append("description", formData.description)
         formDataToSend.append("base", JSON.stringify(formData.base))
-        formDataToSend.append("extras", JSON.stringify(formData.extras))
         formDataToSend.append("price", Number.parseFloat(formData.price).toString())
+        formDataToSend.append("type", formData.type)
         if (imageToSend) formDataToSend.append("image", imageToSend)
 
         await makeQuery(
@@ -195,17 +210,7 @@ export default function SaladsPage() {
         setSelectedSalad(null)
     }
 
-    const getIngredientNames = (ids: string[]) => {
-        return ids
-            .map((id) => ingredients.find((ing) => ing._id === id)?.name)
-            .filter(Boolean)
-            .join(", ")
-    }
-
     const baseOptions: Option[] = ingredients
-        .map((ing) => ({ value: ing._id, label: ing.name }))
-
-    const extrasOptions: Option[] = ingredients
         .map((ing) => ({ value: ing._id, label: ing.name }))
 
 
@@ -224,6 +229,29 @@ export default function SaladsPage() {
                     >
                         + Nueva Ensalada
                     </button>
+                </div>
+
+                {/* Filtros */}
+
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+                    {/* filtro por nombre */}
+                    <input
+                        type="text"
+                        value={searchName}
+                        onChange={(e) => setSearchName(e.target.value)}
+                        placeholder="Buscar por nombre..."
+                        className="w-full sm:w-64 rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+
+                    {/* filtro por tipo */}
+                    <div className="w-full sm:w-64">
+                        <Select
+                            options={filterTypeOptions}
+                            value={filterType}
+                            onChange={(option) => setFilterType(option)}
+                            placeholder="Filtrar por tipo"
+                        />
+                    </div>
                 </div>
 
                 {/* Snackbar */}
@@ -278,7 +306,7 @@ export default function SaladsPage() {
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-900">${salad.price.toFixed(2)}</td>
                                             <td className="px-6 py-4 text-sm text-gray-600">
-                                                { salad.base.length > 0 ? `${salad.base.length} ingrediente(s)` : <span className="italic text-gray-400">Sin base</span>}
+                                                {salad.base.length > 0 ? `${salad.base.length} ingrediente(s)` : <span className="italic text-gray-400">Sin base</span>}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
@@ -320,6 +348,18 @@ export default function SaladsPage() {
                                         placeholder="Ej: Ensalada César"
                                     />
                                 </div>
+
+                                {/* Type salad */}
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium text-gray-900">Tipo *</label>
+                                    <Select
+                                        options={filterTypeOptions.filter(option => option.value !== 'all')}
+                                        value={filterTypeOptions.find(option => option.value === formData.type)}
+                                        onChange={(option) => setFormData(prev => ({ ...prev, type: option ? option.value : 'Ensalada' }))}
+                                        placeholder="Selecciona el tipo de ensalada"
+                                    />
+                                </div>
+
                                 <div>
                                     <label className="mb-2 block text-sm font-medium text-gray-900">Descripción</label>
                                     <textarea
@@ -377,18 +417,6 @@ export default function SaladsPage() {
                                     />
                                 </div>
 
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-gray-900">Extras (Ingredientes)</label>
-                                    <Select<Option, true>
-                                        isMulti
-                                        options={extrasOptions}
-                                        value={extrasOptions.filter((o) => formData.extras.includes(o.value))}
-                                        onChange={(selected: MultiValue<Option>) =>
-                                            setFormData((prev) => ({ ...prev, extras: selected.map((s) => s.value) }))
-                                        }
-                                    />
-                                </div>
-
                                 <div className="flex gap-3 pt-4">
                                     <button
                                         type="button"
@@ -426,6 +454,19 @@ export default function SaladsPage() {
                                         placeholder="Ej: Ensalada César"
                                     />
                                 </div>
+
+                                {/* Type salad */}
+
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium text-gray-900">Tipo de Ensalada *</label>
+                                    <Select
+                                        options={filterTypeOptions.filter(option => option.value !== 'all')}
+                                        value={filterTypeOptions.find(option => option.value === formData.type)}
+                                        onChange={(option) => setFormData(prev => ({ ...prev, type: option ? option.value : 'Ensalada' }))}
+                                        placeholder="Selecciona el tipo de ensalada"
+                                    />
+                                </div>
+
                                 <div>
                                     <label className="mb-2 block text-sm font-medium text-gray-900">Descripción</label>
                                     <textarea
@@ -478,18 +519,6 @@ export default function SaladsPage() {
                                         value={baseOptions.filter((o) => formData.base.includes(o.value))}
                                         onChange={(selected: MultiValue<Option>) =>
                                             setFormData((prev) => ({ ...prev, base: selected.map((s) => s.value) }))
-                                        }
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-gray-900">Extras (Ingredientes)</label>
-                                    <Select<Option, true>
-                                        isMulti
-                                        options={extrasOptions}
-                                        value={extrasOptions.filter((o) => formData.extras.includes(o.value))}
-                                        onChange={(selected: MultiValue<Option>) =>
-                                            setFormData((prev) => ({ ...prev, extras: selected.map((s) => s.value) }))
                                         }
                                     />
                                 </div>

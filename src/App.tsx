@@ -12,6 +12,7 @@ import { Footer } from "./components/Footer";
 import Ingredients from "./components/admin/Ingredients";
 import SaladsPage from "./components/admin/Salads";
 import { SnackbarProvider } from "notistack";
+import { CartProvider } from "./context/CartProvider";
 
 // Layout principal con navegación
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -26,7 +27,8 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const App: React.FC = () => {
   return (
     <BrowserRouter>
-        <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
+      <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        <CartProvider>
           <div className="min-h-screen bg-gray-50">
             <Routes>
               {/* Rutas públicas */}
@@ -84,7 +86,8 @@ const App: React.FC = () => {
             </Routes>
           </div>
           <Footer />
-        </SnackbarProvider>
+        </CartProvider>
+      </SnackbarProvider>
     </BrowserRouter>
   );
 };

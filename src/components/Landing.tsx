@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Clock,
@@ -9,13 +9,46 @@ import {
   Heart,
   Truck,
   Star,
+  Plus,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ImageSlideshow } from "./ImageSlideshow";
 import { bannerImages, reviews } from "../data/sampleData";
+import { makeQuery } from "../utils/api";
+import { useSnackbar } from "notistack";
+
+interface Salad {
+  _id: string
+  name: string
+  description: string
+  base: any[]
+  price: number
+  image: string
+  type: "Ensalada" | "Tarta" | "Bebida" | "Postre"
+}
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
+  const [salads, setSalads] = useState<Salad[]>([])
+  const { enqueueSnackbar } = useSnackbar();
+  const [loading, setLoading] = useState(false);
+
+  const loadSalads = async () => {
+    await makeQuery(
+      null,
+      "getSalads",
+      {},
+      enqueueSnackbar,
+      (data) => {
+        setSalads(data)
+      },
+      setLoading,
+    )
+  }
+
+  useEffect(() => {
+    loadSalads();
+  }, [])
 
   const features = [
     {
@@ -45,8 +78,7 @@ const Landing: React.FC = () => {
         <div className="relative max-w-6xl mx-auto px-4 py-20">
           <div className="text-center">
             <div className="flex justify-center items-center gap-4 mb-6">
-              <UtensilsCrossed size={60} />
-              <h1 className="text-6xl font-bold">Potes</h1>
+              <img src={`/LogoText.png?t=${Date.now()}`} alt="Logo" className="w-auto h-32" />
             </div>
             <p className="text-xl mb-8 max-w-2xl mx-auto">
               Las ensaladas más frescas y deliciosas de la ciudad. Ingredientes
@@ -121,56 +153,119 @@ const Landing: React.FC = () => {
           </div>
         </div>
       </section>
+
       {/* Gallery Section */}
       <div className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">
             Nuestras Ensaladas
           </h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <img
-              src="https://images.pexels.com/photos/1213710/pexels-photo-1213710.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop"
-              alt="Ensalada César"
-              className="rounded-lg shadow-md hover:shadow-xl transition-shadow w-full h-64 object-cover"
-            />
-            <img
-              src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop"
-              alt="Ensalada Mediterránea"
-              className="rounded-lg shadow-md hover:shadow-xl transition-shadow w-full h-64 object-cover"
-            />
-            <img
-              src="https://images.pexels.com/photos/1092730/pexels-photo-1092730.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop"
-              alt="Ensalada Proteica"
-              className="rounded-lg shadow-md hover:shadow-xl transition-shadow w-full h-64 object-cover"
-            />
-          </div>
+
+          {loading && (
+            <div className="text-center text-gray-600 mb-6">Cargando...</div>
+          )}
+
+          {salads.length === 0 && !loading && (
+            <div className="text-center text-gray-600 mb-6">
+              No hay ensaladas disponibles en este momento.
+            </div>
+          )}
+
+          {(salads.length > 0 && !loading) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {salads
+              .filter(salad => salad.type === 'Ensalada')
+              .map((salad) => (
+                <div
+                  key={salad._id}
+                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+                >
+                  <img
+                    src={salad.image || "/placeholder.svg"}
+                    alt={salad.name}
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      {salad.name}
+                    </h3>
+                    <p className="text-gray-600 mb-4">{salad.description}</p>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-green-600">
+                        ${salad.price}
+                      </span>
+                      <Link
+                        to={"/menu"}
+                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
+                      >
+                        <span>Ir al menú</span>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
       {/* Gallery Section */}
-      <div className="py-20 bg-gray-50">
+<div className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-800">
-            Nuestras tartas
+            Nuestras Tartas
           </h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <img
-              src="https://images.pexels.com/photos/1213710/pexels-photo-1213710.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop"
-              alt="Ensalada César"
-              className="rounded-lg shadow-md hover:shadow-xl transition-shadow w-full h-64 object-cover"
-            />
-            <img
-              src="https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop"
-              alt="Ensalada Mediterránea"
-              className="rounded-lg shadow-md hover:shadow-xl transition-shadow w-full h-64 object-cover"
-            />
-            <img
-              src="https://images.pexels.com/photos/1092730/pexels-photo-1092730.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop"
-              alt="Ensalada Proteica"
-              className="rounded-lg shadow-md hover:shadow-xl transition-shadow w-full h-64 object-cover"
-            />
-          </div>
+
+          {loading && (
+            <div className="text-center text-gray-600 mb-6">Cargando...</div>
+          )}
+
+          {salads.length === 0 && !loading && (
+            <div className="text-center text-gray-600 mb-6">
+              No hay ensaladas disponibles en este momento.
+            </div>
+          )}
+
+          {(salads.length > 0 && !loading) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {salads
+              .filter(salad => salad.type === 'Tarta')
+              .map((salad) => (
+                <div
+                  key={salad._id}
+                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+                >
+                  <img
+                    src={salad.image || "/placeholder.svg"}
+                    alt={salad.name}
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      {salad.name}
+                    </h3>
+                    <p className="text-gray-600 mb-4">{salad.description}</p>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-green-600">
+                        ${salad.price}
+                      </span>
+                      <Link
+                        to={"/menu"}
+                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
+                      >
+                        <span>Ir al menú</span>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
       {/* Info Section */}
       <div className="py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4">

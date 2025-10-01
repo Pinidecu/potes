@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Plus, ShoppingCart, Check, X, Minus } from "lucide-react"
-import { useCart } from "../utils/useCart"
+import { useCart } from "../context/CartProvider"
 import { makeQuery } from "../utils/api"
 import { useSnackbar } from "notistack"
 
@@ -43,6 +43,7 @@ export default function MenuPage() {
   useEffect(() => {
     fetchSalads()
     fetchIngredients()
+    window.scrollTo(0, 0)
   }, [])
 
   const fetchSalads = () => {
@@ -175,7 +176,12 @@ export default function MenuPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          {salads.map((salad) => (
+          {
+          salads.length === 0 
+          ?
+          <div className="text-center text-gray-600 col-span-full">No hay ensaladas disponibles en este momento.</div>
+          :
+          salads.map((salad) => (
             <div
               key={salad._id}
               className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"

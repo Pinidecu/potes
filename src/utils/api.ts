@@ -79,7 +79,7 @@ petitions.deleteIngredient = (id: string) => api.delete(`/ingredients/${id}`);
 petitions.createSalad = (form: FormType) => api.post("/salads", form, {
   headers: { "Content-Type": "multipart/form-data" },
 });
-petitions.getSalads = () => api.get("/salads");
+petitions.getSalads = (filter: { name?: string; type?: string }) => api.get(`/salads`, { params: filter });
 petitions.getSaladById = (id: string) => api.get(`/salads/${id}`);
 petitions.updateSalad = ({ id, form }: any) =>
   api.put(`/salads/${id}`, form, {

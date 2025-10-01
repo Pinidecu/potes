@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useCart } from "../utils/useCart"
+import { useCart } from "../context/CartProvider"
 import { makeQuery } from "../utils/api"
 import { Trash2, CheckCircle, ShoppingCart } from "lucide-react"
 import { useNavigate } from "react-router-dom"
@@ -16,11 +16,13 @@ export default function CheckoutPage() {
     name: "",
     email: "",
     address: "",
+    phone: "",
+    location: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderCompleted, setOrderCompleted] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
-  const {enqueueSnackbar} = useSnackbar()
+  const { enqueueSnackbar } = useSnackbar()
   console.log(cartItems)
 
   const showNotification = (message: string, type: "success" | "error") => {
@@ -36,7 +38,7 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!customer.name || !customer.email || !customer.address) {
+    if (!customer.name || !customer.email || !customer.address || !customer.phone) {
       showNotification("Por favor completá todos los campos requeridos", "error")
       return
     }
@@ -58,6 +60,8 @@ export default function CheckoutPage() {
         name: customer.name,
         email: customer.email,
         address: customer.address,
+        phone: customer.phone,
+        location: customer.location,
       },
     }
 
@@ -157,27 +161,26 @@ export default function CheckoutPage() {
                     <div className="text-sm text-gray-600 mb-2">
                       <span className="font-medium">Base:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {item.salad.base
-                          .map((ingredient) => (
-                            <span
-                              key={ingredient._id}
-                              className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs"
-                            >
-                              {ingredient.name}
-                            </span>
-                          ))}
+                        {item.salad.base.map((ingredient) => (
+                          <span
+                            key={ingredient._id}
+                            className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs"
+                          >
+                            {ingredient.name}
+                          </span>
+                        ))}
                       </div>
 
-                      {item.removedIngredients && <div className="text-sm text-gray-600 mb-2">
-                        <span className="font-medium">Sin:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                            <span
-                              className="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs line-through"
-                            >
+                      {item.removedIngredients && (
+                        <div className="text-sm text-gray-600 mb-2">
+                          <span className="font-medium">Sin:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs line-through">
                               {item.removedIngredients}
                             </span>
+                          </div>
                         </div>
-                      </div>}
+                      )}
                     </div>
 
                     {/* Extra ingredients */}
@@ -263,6 +266,22 @@ export default function CheckoutPage() {
               </div>
 
               <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  Teléfono *
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  required
+                  value={customer.phone}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Tu número de teléfono"
+                />
+              </div>
+
+              <div>
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
                   Dirección de entrega *
                 </label>
@@ -275,6 +294,21 @@ export default function CheckoutPage() {
                   onChange={handleInputChange}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Calle, número, piso, depto"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                  Ubicación (opcional)
+                </label>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={customer.location}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Podés agregar un link de Google Maps u otra referencia"
                 />
               </div>
 

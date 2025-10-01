@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { makeQuery } from "../../utils/api"
 import Select from "react-select"
 import { useSnackbar } from "notistack"
+import { ChevronDown } from "lucide-react"
 
 interface Ingredient {
   _id: string
@@ -31,6 +32,8 @@ interface Customer {
   name: string
   email: string
   address: string
+  phone: string
+  location?: string
 }
 
 interface Order {
@@ -48,6 +51,14 @@ interface Order {
   updatedAt?: string
 }
 
+const statusOptions = [
+  { value: "Pending", label: "Pendiente" },
+  { value: "In Progress", label: "En Progreso" },
+  { value: "Shipped", label: "Enviado" },
+  { value: "Delivered", label: "Entregado" },
+  { value: "Cancelled", label: "Cancelado" },
+]
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [salads, setSalads] = useState<Salad[]>([])
@@ -58,7 +69,7 @@ export default function OrdersPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
-  const { enqueueSnackbar } = useSnackbar();
+  const { enqueueSnackbar } = useSnackbar()
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -69,8 +80,20 @@ export default function OrdersPage() {
   }>({
     cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
     totalPrice: 0,
-    customer: { name: "", email: "", address: "" },
+    customer: { name: "", email: "", address: "", phone: "" },
     status: "Pending",
+  })
+
+  const [expandedSections, setExpandedSections] = useState<{
+    Pending: boolean
+    "In Progress": boolean
+    Shipped: boolean
+    Delivered: boolean
+  }>({
+    Pending: true,
+    "In Progress": true,
+    Shipped: false,
+    Delivered: false,
   })
 
   useEffect(() => {
@@ -127,13 +150,13 @@ export default function OrdersPage() {
     setFormData({
       cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
       totalPrice: 0,
-      customer: { name: "", email: "", address: "" },
+      customer: { name: "", email: "", address: "", phone: "" },
       status: "Pending",
     })
   }
 
   const handleCreate = async () => {
-    if (!formData.customer.name || !formData.customer.email || !formData.customer.address) {
+    if (!formData.customer.name || !formData.customer.email || !formData.customer.address || !formData.customer.phone) {
       showNotification("Por favor completa todos los campos del cliente", "error")
       return
     }
@@ -182,6 +205,20 @@ export default function OrdersPage() {
         setShowEditModal(false)
         setSelectedOrder(null)
         resetForm()
+        fetchOrders()
+      },
+      setLoading,
+    )
+  }
+
+  const updateStatus = async (orderId: string, newStatus: string) => {
+    await makeQuery(
+      null,
+      "updateOrder",
+      { id: orderId, status: newStatus },
+      enqueueSnackbar,
+      () => {
+        showNotification("Estado de la orden actualizado exitosamente", "success")
         fetchOrders()
       },
       setLoading,
@@ -276,22 +313,23 @@ export default function OrdersPage() {
     })
   }
 
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case "Pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "In Progress":
-        return "bg-blue-100 text-blue-800"
-      case "Shipped":
-        return "bg-purple-100 text-purple-800"
-      case "Delivered":
-        return "bg-green-100 text-green-800"
-      case "Cancelled":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const toggleSection = (status: "Pending" | "In Progress" | "Shipped" | "Delivered") => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [status]: !prev[status],
+    }))
   }
+
+  const getOrdersByStatus = (status: "Pending" | "In Progress" | "Shipped" | "Delivered") => {
+    return orders.filter((order) => order.status === status)
+  }
+
+  const statusSections = [
+    { key: "Pending" as const, label: "Pendiente", color: "bg-yellow-50 border-yellow-200" },
+    { key: "In Progress" as const, label: "Preparando", color: "bg-blue-50 border-blue-200" },
+    { key: "Shipped" as const, label: "Enviando", color: "bg-purple-50 border-purple-200" },
+    { key: "Delivered" as const, label: "Entregado", color: "bg-green-50 border-green-200" },
+  ]
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -313,89 +351,158 @@ export default function OrdersPage() {
         {/* Notification */}
         {notification && (
           <div
-            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${notification.type === "success" ? "bg-green-500" : "bg-red-500"
-              } text-white`}
+            className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+              notification.type === "success" ? "bg-green-500" : "bg-red-500"
+            } text-white`}
           >
             {notification.message}
           </div>
         )}
 
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center text-gray-500">Cargando órdenes...</div>
-          ) : orders.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No hay órdenes registradas</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cliente
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Carrito
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {orders.map((order) => (
-                    <tr key={order._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
-                        <div className="text-sm text-gray-500">{order.customer.email}</div>
-                        <div className="text-sm text-gray-500">{order.customer.address}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {order.cart.map((item, idx) => (
-                            <div key={idx} className="mb-2">
-                              <span className="font-medium">{getSaladName(item.salad)}</span>
-                              <span className="text-gray-500"> x{item.quantity}</span>
-                              {item.extra.length > 0 && (
-                                <div className="text-xs text-gray-500 ml-2">
-                                  Extras: {getIngredientNames(item.extra)}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">${order.totalPrice.toFixed(2)}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
-                      <td className="px-6 py-4 text-sm font-medium space-x-2">
-                        <button onClick={() => openEditModal(order)} className="text-blue-600 hover:text-blue-900">
-                          Editar
-                        </button>
-                        <button onClick={() => openDeleteModal(order)} className="text-red-600 hover:text-red-900">
-                          Eliminar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {loading ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">Cargando órdenes...</div>
+        ) : orders.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">No hay órdenes registradas</div>
+        ) : (
+          <div className="space-y-4">
+            {statusSections.map((section) => {
+              const statusOrders = getOrdersByStatus(section.key)
+              const isExpanded = expandedSections[section.key]
+
+              return (
+                <div key={section.key} className={`bg-white rounded-lg shadow border-2 ${section.color}`}>
+                  {/* Section Header - Clickable to toggle */}
+                  <button
+                    onClick={() => toggleSection(section.key)}
+                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-xl font-bold text-gray-900">{section.label}</h2>
+                      <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                        {statusOrders.length}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {/* Orders Table - Collapsible */}
+                  {isExpanded && statusOrders.length > 0 && (
+                    <div className="border-t border-gray-200">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Cliente
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Carrito
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Total
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Estado
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Fecha
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Acciones
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {statusOrders.map((order) => (
+                              <tr key={order._id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4">
+                                  <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
+                                  <div className="text-sm text-gray-500">{order.customer.email}</div>
+                                  <div className="text-sm text-gray-500">{order.customer.phone}</div>
+                                  <div className="text-sm text-gray-500">{order.customer.address}</div>
+                                  {order.customer.location && (
+                                    <a
+                                      href={order.customer.location}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-blue-600 hover:underline"
+                                    >
+                                      Ver ubicación
+                                    </a>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="text-sm text-gray-900">
+                                    {order.cart.map((item, idx) => (
+                                      <div key={idx} className="mb-2">
+                                        <span className="font-medium">{getSaladName(item.salad)}</span>
+                                        <span className="text-gray-500"> x{item.quantity}</span>
+                                        {item.extra.length > 0 && (
+                                          <div className="text-xs text-gray-500 ml-2">
+                                            Extras: {getIngredientNames(item.extra)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                  ${order.totalPrice.toFixed(2)}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <Select
+                                    value={statusOptions.find((opt) => opt.value === order.status)}
+                                    onChange={(option) => updateStatus(order._id, option?.value || order.status)}
+                                    options={statusOptions}
+                                    menuPortalTarget={document.body}
+                                    styles={{
+                                      control: (base) => ({
+                                        ...base,
+                                        borderColor: "gray",
+                                        "&:hover": {
+                                          borderColor: "blue",
+                                        },
+                                      }),
+                                      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                    }}
+                                  />
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
+                                <td className="px-6 py-4 text-sm font-medium space-x-2">
+                                  <button
+                                    onClick={() => openEditModal(order)}
+                                    className="text-blue-600 hover:text-blue-900"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={() => openDeleteModal(order)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Empty state when section is expanded but has no orders */}
+                  {isExpanded && statusOrders.length === 0 && (
+                    <div className="px-6 py-8 text-center text-gray-500 border-t border-gray-200">
+                      No hay órdenes en este estado
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Create Modal */}
         {showCreateModal && (
@@ -439,6 +546,7 @@ export default function OrdersPage() {
                         placeholder="email@ejemplo.com"
                       />
                     </div>
+
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
                       <input
@@ -452,6 +560,38 @@ export default function OrdersPage() {
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Dirección de entrega"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Ubicación</label>
+                      <input
+                        type="text"
+                        value={formData.customer.location || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, location: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ubicación (Link de Google Maps)"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
+                      <input
+                        type="text"
+                        value={formData.customer.phone}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, phone: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Número de teléfono"
                       />
                     </div>
                   </div>
@@ -489,9 +629,9 @@ export default function OrdersPage() {
                               value={
                                 item.salad
                                   ? {
-                                    value: item.salad,
-                                    label: salads.find((s) => s._id === item.salad)?.name || "Seleccionar",
-                                  }
+                                      value: item.salad,
+                                      label: salads.find((s) => s._id === item.salad)?.name || "Seleccionar",
+                                    }
                                   : null
                               }
                               onChange={(option) => updateCartItem(index, "salad", option?.value || "")}
@@ -521,7 +661,9 @@ export default function OrdersPage() {
                           </div>
 
                           <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">{item.removedIngredients}</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {item.removedIngredients}
+                            </label>
                           </div>
 
                           <div className="md:col-span-2">
@@ -672,6 +814,47 @@ export default function OrdersPage() {
                         placeholder="Dirección de entrega"
                       />
                     </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Ubicación</label>
+                      <input
+                        type="text"
+                        value={formData.customer.location || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, location: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ubicación (Link de Google Maps)"
+                      />
+
+                      {formData.customer.location?.includes("https://maps.google.com") && (
+                        <button
+                          className="mt-2 text-blue-600 hover:underline text-sm"
+                          onClick={() => window.open(formData.customer.location, "_blank")}
+                        >
+                          Ver en Google Maps
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
+                      <input
+                        type="text"
+                        value={formData.customer.phone}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            customer: { ...formData.customer, phone: e.target.value },
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Número de teléfono"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -707,9 +890,9 @@ export default function OrdersPage() {
                               value={
                                 item.salad
                                   ? {
-                                    value: item.salad,
-                                    label: salads.find((s) => s._id === item.salad)?.name || "Seleccionar",
-                                  }
+                                      value: item.salad,
+                                      label: salads.find((s) => s._id === item.salad)?.name || "Seleccionar",
+                                    }
                                   : null
                               }
                               onChange={(option) => updateCartItem(index, "salad", option?.value || "")}
@@ -739,7 +922,9 @@ export default function OrdersPage() {
                           </div>
 
                           <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">{item.removedIngredients}</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {item.removedIngredients}
+                            </label>
                           </div>
 
                           <div className="md:col-span-2">

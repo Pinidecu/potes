@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ShoppingCart, Home, UtensilsCrossed, LogOut } from 'lucide-react';
-import { useCart } from '../utils/useCart';
+import { useCart } from '../context/CartProvider';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -31,8 +31,7 @@ const Navigation: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <Link to="/" className="text-2xl font-bold text-green-600 flex items-center gap-2">
-            <UtensilsCrossed className="text-green-600" />
-            Potes
+            <img src="/Logo.png" alt="Logo" className="w-24 object-contain" />
           </Link>
           
           <div className="flex items-center gap-6">
