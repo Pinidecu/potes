@@ -28,6 +28,7 @@ interface Salad {
     base: any[]
     price: number
     image: string
+    type: "Ensalada" | "Tarta"
 }
 
 export default function SaladsPage() {
@@ -112,6 +113,7 @@ export default function SaladsPage() {
             base: salad.base.map((item) => item._id.toString()),
             price: salad.price.toString(),
             image: salad.image,
+            type: salad.type || "Ensalada",
         })
         setIsEditModalOpen(true)
     }

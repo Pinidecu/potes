@@ -2,13 +2,14 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { act, useEffect, useState } from "react"
 import { makeQuery } from "../../utils/api"
 
 interface Ingredient {
   _id: string
   name: string
   priceAsExtra: number
+  active: boolean
   type: "base" | "vegetal" | "premium" | "proteina" | "aderezo" | "extra"
 }
 
@@ -118,6 +119,26 @@ export default function IngredientsPage() {
       () => {
         showSnackbar("Ingrediente actualizado exitosamente", { variant: "success" })
         setIsEditModalOpen(false)
+        loadIngredients()
+      },
+      setLoading,
+    )
+  }
+
+  const handleChangeStatus = async (ingredient: Ingredient) => {
+    await makeQuery(
+      null,
+      "updateIngredient",
+      {
+        id: ingredient._id,
+        active: !ingredient.active,
+      },
+      showSnackbar,
+      () => {
+        showSnackbar(
+          `Ingrediente ${!ingredient.active ? "activado" : "desactivado"} exitosamente`,
+          { variant: "success" },
+        )
         loadIngredients()
       },
       setLoading,
@@ -234,11 +255,23 @@ export default function IngredientsPage() {
                           >
                             Editar
                           </button>
+
                           <button
                             onClick={() => handleDeleteOpen(ingredient)}
                             className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
                           >
                             Eliminar
+                          </button>
+                          
+                          <button
+                            onClick={() => handleChangeStatus(ingredient)}
+                            className={
+                              `rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
+                                ingredient.active ? "bg-yellow-600 hover:bg-yellow-700" : "bg-green-600 hover:bg-green-700"
+                              }`
+                            }
+                          >
+                            {ingredient.active ? "Desactivar" : "Activar"}
                           </button>
                         </div>
                       </td>

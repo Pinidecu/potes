@@ -70,6 +70,7 @@ export const makeQuery = async (
 // * INGREDIENTS
 petitions.createIngredient = (form: FormType) => api.post("/ingredients", form);
 petitions.getIngredients = () => api.get("/ingredients");
+petitions.getActiveIngredients = () => api.get("/ingredients/active");
 petitions.getIngredientById = (id: string) => api.get(`/ingredients/${id}`);
 petitions.updateIngredient = ({ id, ...form }: any) =>
   api.put(`/ingredients/${id}`, form);

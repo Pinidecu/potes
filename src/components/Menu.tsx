@@ -33,7 +33,7 @@ export default function MenuPage() {
   const [showCustomization, setShowCustomization] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
-  const {enqueueSnackbar} = useSnackbar()
+  const { enqueueSnackbar } = useSnackbar()
 
   const showNotification = (message: string, type: "success" | "error") => {
     setNotification({ message, type })
@@ -63,7 +63,7 @@ export default function MenuPage() {
   const fetchIngredients = () => {
     makeQuery(
       localStorage.getItem("token"),
-      "getIngredients",
+      "getActiveIngredients",
       {},
       enqueueSnackbar,
       (data: Ingredient[]) => {
@@ -146,9 +146,8 @@ export default function MenuPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       {notification && (
         <div
-          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
-            notification.type === "success" ? "bg-green-500" : "bg-red-500"
-          } text-white`}
+          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${notification.type === "success" ? "bg-green-500" : "bg-red-500"
+            } text-white`}
         >
           {notification.message}
         </div>
@@ -175,45 +174,66 @@ export default function MenuPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          {
-          salads.length === 0 
-          ?
-          <div className="text-center text-gray-600 col-span-full">No hay ensaladas disponibles en este momento.</div>
-          :
-          salads.map((salad) => (
-            <div
-              key={salad._id}
-              className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
-            >
-              <img src={salad.image || "/placeholder.svg"} alt={salad.name} className="w-full h-48 object-cover" />
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{salad.name}</h3>
-                <p className="text-gray-600 mb-4">{salad.description}</p>
-                <div className="mb-4">
-                  <h4 className="font-semibold text-gray-800 mb-2">Ingredientes base:</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {salad.base.map((ingredient) => (
-                      <span key={ingredient._id} className="bg-green-100 text-green-800 text-sm px-2 py-1 rounded-full">
-                        {ingredient.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold text-green-600">${salad.price}</span>
-                  <button
-                    onClick={() => openCustomization(salad)}
-                    className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+  {salads.length === 0 ? (
+    <div className="text-center text-gray-600 col-span-full">
+      No hay ensaladas disponibles en este momento.
+    </div>
+  ) : (
+    salads.map((salad) => (
+      <div
+        key={salad._id}
+        className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
+      >
+        <img
+          src={salad.image || "/placeholder.svg"}
+          alt={salad.name}
+          className="w-full h-48 object-cover"
+        />
+
+        {/* Contenedor principal en columna */}
+        <div className="p-6 flex flex-col flex-1">
+          {/* Contenido superior */}
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {salad.name}
+            </h3>
+            <p className="text-gray-600 mb-4">{salad.description}</p>
+            <div className="mb-4">
+              <h4 className="font-semibold text-gray-800 mb-2">
+                Ingredientes base:
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {salad.base.map((ingredient) => (
+                  <span
+                    key={ingredient._id}
+                    className="bg-green-100 text-green-800 text-sm px-2 py-1 rounded-full"
                   >
-                    <Plus className="h-4 w-4" />
-                    <span>Personalizar</span>
-                  </button>
-                </div>
+                    {ingredient.name}
+                  </span>
+                ))}
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* Bloque inferior SIEMPRE abajo */}
+          <div className="flex items-center justify-between mt-auto">
+            <span className="text-2xl font-bold text-green-600">
+              ${salad.price}
+            </span>
+            <button
+              onClick={() => openCustomization(salad)}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Personalizar</span>
+            </button>
+          </div>
         </div>
+      </div>
+    ))
+  )}
+</div>
 
         {showCustomization && selectedSalad && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -235,9 +255,8 @@ export default function MenuPage() {
                         return (
                           <div
                             key={ingredient._id}
-                            className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${
-                              isRemoved ? "bg-red-50 border-red-200 opacity-60" : "bg-green-50 border-green-200"
-                            }`}
+                            className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${isRemoved ? "bg-red-50 border-red-200 opacity-60" : "bg-green-50 border-green-200"
+                              }`}
                             onClick={() => toggleRemovedIngredient(ingredient)}
                           >
                             <span className={isRemoved ? "text-red-700 line-through" : "text-green-700"}>
@@ -267,11 +286,10 @@ export default function MenuPage() {
                               return (
                                 <div
                                   key={ingredient._id}
-                                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${
-                                    isSelected
+                                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${isSelected
                                       ? "bg-blue-50 border-blue-200"
                                       : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                                  }`}
+                                    }`}
                                   onClick={() => toggleExtra(ingredient)}
                                 >
                                   <div>
