@@ -49,6 +49,8 @@ interface Order {
   status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled"
   createdAt?: string
   updatedAt?: string
+  paymentMethod: "Cash" | "Transfer"
+  cashAmount?: number
 }
 
 const statusOptions = [
@@ -282,17 +284,6 @@ export default function OrdersPage() {
     setFormData({ ...formData, cart: newCart })
   }
 
-  const toggleExtra = (cartIndex: number, ingredientId: string) => {
-    const newCart = [...formData.cart]
-    const extras = newCart[cartIndex].extra
-    if (extras.includes(ingredientId)) {
-      newCart[cartIndex].extra = extras.filter((id) => id !== ingredientId)
-    } else {
-      newCart[cartIndex].extra = [...extras, ingredientId]
-    }
-    setFormData({ ...formData, cart: newCart })
-  }
-
   const getSaladName = (salad: Salad | string): string => {
     if (typeof salad === "string") return "N/A"
     return salad.name
@@ -410,6 +401,9 @@ export default function OrdersPage() {
                                 Fecha
                               </th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Pago
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Acciones
                               </th>
                             </tr>
@@ -470,6 +464,13 @@ export default function OrdersPage() {
                                   />
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
+                                <td className="px-6 py-4 text-sm text-gray-500">
+                                  {order.paymentMethod === "Cash" ? (
+                                    <div>Efectivo (${order.cashAmount?.toFixed(2)})</div>
+                                  ) : (
+                                    <div>Transferencia</div>
+                                  )}
+                                </td>
                                 <td className="px-6 py-4 text-sm font-medium space-x-2">
                                   <button
                                     onClick={() => openEditModal(order)}

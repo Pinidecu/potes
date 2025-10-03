@@ -19,11 +19,12 @@ export default function CheckoutPage() {
     phone: "",
     location: "",
   })
+  const [paymentMethod, setPaymentMethod] = useState<"Cash" | "Transfer" | "">("")
+  const [cashAmount, setCashAmount] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderCompleted, setOrderCompleted] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const { enqueueSnackbar } = useSnackbar()
-  console.log(cartItems)
 
   const showNotification = (message: string, type: "success" | "error") => {
     setNotification({ message, type })
@@ -40,6 +41,21 @@ export default function CheckoutPage() {
 
     if (!customer.name || !customer.email || !customer.address || !customer.phone) {
       showNotification("Por favor completá todos los campos requeridos", "error")
+      return
+    }
+
+    if (!paymentMethod) {
+      showNotification("Por favor seleccioná un medio de pago", "error")
+      return
+    }
+
+    if (paymentMethod === "Cash" && !cashAmount) {
+      showNotification("Por favor ingresá con cuánto vas a pagar", "error")
+      return
+    }
+
+    if (paymentMethod === "Cash" && Number.parseFloat(cashAmount) < getTotal()) {
+      showNotification("El monto en efectivo debe ser mayor o igual al total", "error")
       return
     }
 
@@ -63,6 +79,8 @@ export default function CheckoutPage() {
         phone: customer.phone,
         location: customer.location,
       },
+      paymentMethod,
+      ...(paymentMethod === "Cash" && { cashAmount: Number.parseFloat(cashAmount) }),
     }
 
     makeQuery(
@@ -157,7 +175,6 @@ export default function CheckoutPage() {
                       </button>
                     </div>
 
-                    {/* Base ingredients */}
                     <div className="text-sm text-gray-600 mb-2">
                       <span className="font-medium">Base:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -183,7 +200,6 @@ export default function CheckoutPage() {
                       )}
                     </div>
 
-                    {/* Extra ingredients */}
                     {item.extra.length > 0 && (
                       <div className="text-sm text-gray-600 mb-2">
                         <span className="font-medium">Extras:</span>
@@ -200,7 +216,6 @@ export default function CheckoutPage() {
                       </div>
                     )}
 
-                    {/* Quantity controls */}
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-2">
                         <button
@@ -311,6 +326,65 @@ export default function CheckoutPage() {
                   placeholder="Podés agregar un link de Google Maps u otra referencia"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">Medio de pago *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod("Cash")
+                      setCashAmount("")
+                    }}
+                    className={`p-4 rounded-lg border-2 transition-all font-medium ${
+                      paymentMethod === "Cash"
+                        ? "border-green-600 bg-green-50 text-green-700"
+                        : "border-gray-300 hover:border-gray-400"
+                    }`}
+                  >
+                    Efectivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod("Transfer")
+                      setCashAmount("")
+                    }}
+                    className={`p-4 rounded-lg border-2 transition-all font-medium ${
+                      paymentMethod === "Transfer"
+                        ? "border-green-600 bg-green-50 text-green-700"
+                        : "border-gray-300 hover:border-gray-400"
+                    }`}
+                  >
+                    Transferencia
+                  </button>
+                </div>
+              </div>
+
+              {paymentMethod === "Cash" && (
+                <div>
+                  <label htmlFor="cashAmount" className="block text-sm font-medium text-gray-700 mb-2">
+                    ¿Con cuánto pagás? *
+                  </label>
+                  <input
+                    type="number"
+                    id="cashAmount"
+                    name="cashAmount"
+                    required
+                    min={getTotal()}
+                    step="0.01"
+                    value={cashAmount}
+                    onChange={(e) => setCashAmount(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder={`Mínimo $${getTotal().toFixed(2)}`}
+                  />
+                  {cashAmount && Number.parseFloat(cashAmount) > getTotal() && (
+                    <p className="mt-2 text-sm text-green-600">
+                      Vuelto: ${(Number.parseFloat(cashAmount) - getTotal()).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <button
                 type="submit"

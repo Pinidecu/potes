@@ -21,6 +21,7 @@ interface Salad {
   extras: Ingredient[]
   price: number
   image: string
+  type?: "Ensalada" | "Tarta" | "Otros"
 }
 
 export default function MenuPage() {
@@ -33,6 +34,7 @@ export default function MenuPage() {
   const [showCustomization, setShowCustomization] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+  const [selectedFilter, setSelectedFilter] = useState<"Todos" | "Ensalada" | "Tarta">("Todos")
   const { enqueueSnackbar } = useSnackbar()
 
   const showNotification = (message: string, type: "success" | "error") => {
@@ -102,7 +104,11 @@ export default function MenuPage() {
 
   const addCustomizedSaladToCart = () => {
     if (selectedSalad) {
-      addToCart(selectedSalad, selectedExtras, removedIngredients.length ? `Sin: ${removedIngredients.map((ing) => ing.name).join(", ")}` : "")
+      addToCart(
+        selectedSalad,
+        selectedExtras,
+        removedIngredients.length ? `Sin: ${removedIngredients.map((ing) => ing.name).join(", ")}` : "",
+      )
       showNotification("Ensalada agregada al carrito", "success")
       closeCustomization()
     }
@@ -113,6 +119,11 @@ export default function MenuPage() {
     const extrasPrice = selectedExtras.reduce((sum, ing) => sum + ing.priceAsExtra, 0)
     return selectedSalad.price + extrasPrice
   }
+
+  const filteredSalads = salads.filter((salad) => {
+    if (selectedFilter === "Todos") return true
+    return salad.type === selectedFilter
+  })
 
   const ingredientsByType = ingredients.reduce(
     (acc, ingredient) => {
@@ -174,70 +185,88 @@ export default function MenuPage() {
           </div>
         )}
 
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-  {salads.length === 0 ? (
-    <div className="text-center text-gray-600 col-span-full">
-      No hay ensaladas disponibles en este momento.
-    </div>
-  ) : (
-    salads.map((salad) => (
-      <div
-        key={salad._id}
-        className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
-      >
-        <img
-          src={salad.image || "/placeholder.svg"}
-          alt={salad.name}
-          className="w-full h-48 object-cover"
-        />
-
-        {/* Contenedor principal en columna */}
-        <div className="p-6 flex flex-col flex-1">
-          {/* Contenido superior */}
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              {salad.name}
-            </h3>
-            <p className="text-gray-600 mb-4">{salad.description}</p>
-            <div className="mb-4">
-              <h4 className="font-semibold text-gray-800 mb-2">
-                Ingredientes base:
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {salad.base.map((ingredient) => (
-                  <span
-                    key={ingredient._id}
-                    className="bg-green-100 text-green-800 text-sm px-2 py-1 rounded-full"
-                  >
-                    {ingredient.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Bloque inferior SIEMPRE abajo */}
-          <div className="flex items-center justify-between mt-auto">
-            <span className="text-2xl font-bold text-green-600">
-              ${salad.price}
-            </span>
-            <button
-              onClick={() => openCustomization(salad)}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Personalizar</span>
-            </button>
-          </div>
+        <div className="flex justify-center gap-4 mb-8">
+          <button
+            onClick={() => setSelectedFilter("Todos")}
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${selectedFilter === "Todos"
+                ? "bg-green-500 text-white shadow-lg"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+              }`}
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setSelectedFilter("Ensalada")}
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${selectedFilter === "Ensalada"
+                ? "bg-green-500 text-white shadow-lg"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+              }`}
+          >
+            Ensaladas
+          </button>
+          <button
+            onClick={() => setSelectedFilter("Tarta")}
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${selectedFilter === "Tarta"
+                ? "bg-green-500 text-white shadow-lg"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+              }`}
+          >
+            Tartas
+          </button>
         </div>
-      </div>
-    ))
-  )}
-</div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+          {filteredSalads.length === 0 ? (
+            <div className="text-center text-gray-600 col-span-full">
+              No hay {selectedFilter === "Todos" ? "productos" : selectedFilter.toLowerCase()} disponibles en este
+              momento.
+            </div>
+          ) : (
+            filteredSalads.map((salad) => (
+              <div
+                key={salad._id}
+                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
+              >
+                <img src={salad.image || "/placeholder.svg"} alt={salad.name} className="w-full h-48 object-cover" />
+
+                <div className="p-6 flex flex-col flex-1">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{salad.name}</h3>
+                    <p className="text-gray-600 mb-4">{salad.description}</p>
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-800 mb-2">Ingredientes base:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {salad.base.map((ingredient) => (
+                          <span
+                            key={ingredient._id}
+                            className="bg-green-100 text-green-800 text-sm px-2 py-1 rounded-full"
+                          >
+                            {ingredient.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-auto">
+                    <span className="text-2xl font-bold text-green-600">${salad.price}</span>
+                    <button
+                      onClick={() => openCustomization(salad)}
+                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Personalizar</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
         {showCustomization && selectedSalad && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl max-w-4xl max-h-[90vh] overflow-y-auto w-full">
+            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
               <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Personalizar {selectedSalad.name}</h2>
                 <button onClick={closeCustomization} className="text-gray-500 hover:text-gray-700">
@@ -245,7 +274,7 @@ export default function MenuPage() {
                 </button>
               </div>
 
-              <div className="p-6">
+              <div className="p-6 flex-1 overflow-y-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Ingredientes base (podés quitar los que no quieras)</h3>
@@ -282,7 +311,6 @@ export default function MenuPage() {
                           <div className="space-y-2">
                             {typeIngredients.map((ingredient) => {
                               const isSelected = selectedExtras.find((i) => i._id === ingredient._id)
-
                               return (
                                 <div
                                   key={ingredient._id}
@@ -312,21 +340,21 @@ export default function MenuPage() {
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="mt-8 pt-6 border-t border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-lg text-gray-600">Precio total: </span>
-                      <span className="text-2xl font-bold text-green-600">${calculateCustomPrice()}</span>
-                    </div>
-                    <button
-                      onClick={addCustomizedSaladToCart}
-                      className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
-                    >
-                      <ShoppingCart className="h-5 w-5" />
-                      <span>Agregar al carrito</span>
-                    </button>
+              <div className="p-6 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-lg text-gray-600">Precio total: </span>
+                    <span className="text-2xl font-bold text-green-600">${calculateCustomPrice()}</span>
                   </div>
+                  <button
+                    onClick={addCustomizedSaladToCart}
+                    className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    <span>Agregar al carrito</span>
+                  </button>
                 </div>
               </div>
             </div>

@@ -232,34 +232,55 @@ const Landing: React.FC = () => {
               {salads
               .filter(salad => salad.type === 'Tarta')
               .map((salad) => (
-                <div
-                  key={salad._id}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
-                >
-                  <img
-                    src={salad.image || "/placeholder.svg"}
-                    alt={salad.name}
-                    className="w-full h-48 object-cover"
-                  />
-                  <div className="p-6">
+                 <div
+                key={salad._id}
+                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
+              >
+                <img
+                  src={salad.image || "/placeholder.svg"}
+                  alt={salad.name}
+                  className="w-full h-48 object-cover"
+                />
+
+                {/* Contenedor principal en columna */}
+                <div className="p-6 flex flex-col flex-1">
+                  {/* Contenido superior */}
+                  <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
                       {salad.name}
                     </h3>
                     <p className="text-gray-600 mb-4">{salad.description}</p>
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-800 mb-2">
+                        Ingredientes base:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {salad.base.map((ingredient) => (
+                          <span
+                            key={ingredient._id}
+                            className="bg-green-100 text-green-800 text-sm px-2 py-1 rounded-full"
+                          >
+                            {ingredient.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold text-green-600">
-                        ${salad.price}
-                      </span>
+                  {/* Bloque inferior SIEMPRE abajo */}
+                  <div className="flex items-center justify-between mt-auto">
+                    <span className="text-2xl font-bold text-green-600">
+                      ${salad.price}
+                    </span>
                       <Link
                         to={"/menu"}
                         className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
                       >
                         <span>Ir al menú</span>
                       </Link>
-                    </div>
                   </div>
                 </div>
+              </div>
               ))}
             </div>
           )}
