@@ -1,10 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { makeQuery } from "../../utils/api"
 import Select from "react-select"
 import { useSnackbar } from "notistack"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Phone } from "lucide-react" 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 interface Ingredient {
   _id: string
@@ -72,6 +74,9 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const { enqueueSnackbar } = useSnackbar()
+
+
+  const [filter, setFilter] = useState<"today" | "week" | "all">("today");
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -312,7 +317,7 @@ export default function OrdersPage() {
   }
 
   const getOrdersByStatus = (status: "Pending" | "In Progress" | "Shipped" | "Delivered") => {
-    return orders.filter((order) => order.status === status)
+    return filteredOrders.filter((order) => order.status === status)
   }
 
   const statusSections = [
@@ -320,7 +325,63 @@ export default function OrdersPage() {
     { key: "In Progress" as const, label: "Preparando", color: "bg-blue-50 border-blue-200" },
     { key: "Shipped" as const, label: "Enviando", color: "bg-purple-50 border-purple-200" },
     { key: "Delivered" as const, label: "Entregado", color: "bg-green-50 border-green-200" },
+    { key: "Cancelled" as const, label: "Cancelado", color: "bg-red-50 border-red-200" },
   ]
+
+
+
+  const getFilteredOrders = () => {
+    const now = new Date();
+
+    return orders.filter((order) => {
+      const orderDate = new Date(order.createdAt);
+
+      if (filter === "today") {
+        return (
+          orderDate.getDate() === now.getDate() &&
+          orderDate.getMonth() === now.getMonth() &&
+          orderDate.getFullYear() === now.getFullYear()
+        );
+      }
+
+      if (filter === "week") {
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay()); // domingo
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+        return orderDate >= startOfWeek && orderDate < endOfWeek;
+      }
+
+      return true; // "all"
+    });
+  };
+
+  const filteredOrders = getFilteredOrders();
+
+
+   // MÉTRICAS calculadas en base a filteredOrders
+  const metrics = useMemo(() => {
+    const cantidad = filteredOrders.length;
+     const totalPedidos = filteredOrders
+      .filter((o) => o.status !== "Cancelled")
+      .reduce((acc, o) => acc + o.totalPrice, 0);
+    const totalEfectivo = filteredOrders
+      .filter((o) => o.paymentMethod === "Cash" && o.status !== "Cancelled")
+      .reduce((acc, o) => acc + o.totalPrice, 0);
+    const totalTransferencia = filteredOrders
+      .filter((o) => o.paymentMethod === "Transfer" && o.status !== "Cancelled")
+      .reduce((acc, o) => acc + o.totalPrice, 0);
+
+    return {
+      cantidad,
+      totalPedidos,
+      totalEfectivo,
+      totalTransferencia,
+    };
+  }, [filteredOrders]);
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -338,6 +399,65 @@ export default function OrdersPage() {
             + Nueva Orden
           </button>
         </div>
+
+        <div className="flex gap-4 mb-6">
+          <button
+            onClick={() => setFilter("today")}
+            className={`px-4 py-2 rounded ${
+              filter === "today"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800"
+            }`}
+          >
+            Hoy
+          </button>
+
+          <button
+            onClick={() => setFilter("week")}
+            className={`px-4 py-2 rounded ${
+              filter === "week"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800"
+            }`}
+          >
+            Semana actual
+          </button>
+
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-4 py-2 rounded ${
+              filter === "all"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800"
+            }`}
+          >
+            Todo
+          </button>
+        </div>
+
+        {/* MÉTRICAS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="p-4 bg-white shadow rounded">
+          <h3 className="text-sm text-gray-600">Cantidad de pedidos</h3>
+          <p className="text-xl font-bold">{metrics.cantidad}</p>
+        </div>
+
+        <div className="p-4 bg-white shadow rounded">
+          <h3 className="text-sm text-gray-600">Total de pedidos</h3>
+          <p className="text-xl font-bold">${metrics.totalPedidos}</p>
+        </div>
+
+        <div className="p-4 bg-white shadow rounded">
+          <h3 className="text-sm text-gray-600">Total en efectivo</h3>
+          <p className="text-xl font-bold">${metrics.totalEfectivo}</p>
+        </div>
+
+        <div className="p-4 bg-white shadow rounded">
+          <h3 className="text-sm text-gray-600">Total en transferencia</h3>
+          <p className="text-xl font-bold">${metrics.totalTransferencia}</p>
+        </div>
+      </div>
+
 
         {/* Notification */}
         {notification && (
@@ -414,7 +534,16 @@ export default function OrdersPage() {
                                 <td className="px-6 py-4">
                                   <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
                                   <div className="text-sm text-gray-500">{order.customer.email}</div>
-                                  <div className="text-sm text-gray-500">{order.customer.phone}</div>
+                                  <div className="text-sm text-gray-500">{order.customer.phone}</div>                                   
+                                  <div className="text-sm text-gray-500"><a
+                                      href={'https://wa.me/' + order.customer.phone}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-blue-600 hover:underline"
+                                    >
+                                       <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "24px" }} />
+                                    </a>
+                                  </div>
                                   <div className="text-sm text-gray-500">{order.customer.address}</div>
                                   {order.customer.location && (
                                     <a
@@ -468,8 +597,8 @@ export default function OrdersPage() {
                                   {order.paymentMethod === "Cash" ? (
                                     <div>Efectivo (${order.cashAmount?.toFixed(2)})</div>
                                   ) : (
-                                    <div>Transferencia</div>
-                                  )}
+                                    order.paymentMethod === "Transfer" ? <div>Transferencia</div> :<div>Vacio</div>
+                                  )} 
                                 </td>
                                 <td className="px-6 py-4 text-sm font-medium space-x-2">
                                   <button

@@ -17,7 +17,7 @@ export const Footer: React.FC = () => {
               <a href="#" className="text-gray-300 hover:text-green-400 transition-colors">
                 <Facebook className="h-5 w-5" />
               </a>
-              <a href="#" className="text-gray-300 hover:text-green-400 transition-colors">
+              <a href="https://www.instagram.com/pote.alimentos/" target='_blank' className="text-gray-300 hover:text-green-400 transition-colors">
                 <Instagram className="h-5 w-5" />
               </a>
               <a href="#" className="text-gray-300 hover:text-green-400 transition-colors">
@@ -32,11 +32,11 @@ export const Footer: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <MapPin className="h-4 w-4 text-green-400" />
-                <span className="text-gray-300 text-sm">Av. Principal 123, Ciudad</span>
+                <span className="text-gray-300 text-sm">Salta Capital</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Phone className="h-4 w-4 text-green-400" />
-                <span className="text-gray-300 text-sm">+54 11 1234-5678</span>
+                <span className="text-gray-300 text-sm">+54 3872572264</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Mail className="h-4 w-4 text-green-400" />

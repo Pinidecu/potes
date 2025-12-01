@@ -5,9 +5,15 @@ import type React from "react"
 import { useState } from "react"
 import { useCart } from "../context/CartProvider"
 import { makeQuery } from "../utils/api"
-import { Trash2, CheckCircle, ShoppingCart } from "lucide-react"
+import { Trash2, CheckCircle, ShoppingCart, Timer } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useSnackbar } from "notistack"
+
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import MapSelector from "./MapSelector"
+import OSMAddressAutocomplete from "./OSMAddressAutocomplete"
+
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -25,6 +31,10 @@ export default function CheckoutPage() {
   const [orderCompleted, setOrderCompleted] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const { enqueueSnackbar } = useSnackbar()
+
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null); 
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const showNotification = (message: string, type: "success" | "error") => {
     setNotification({ message, type })
@@ -101,12 +111,22 @@ export default function CheckoutPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
           <div className="text-green-600 mb-6">
-            <CheckCircle size={80} className="mx-auto" />
+            {paymentMethod ==="Transfer" ? <Timer size={80} className="mx-auto" color="orange" />:<CheckCircle size={80} className="mx-auto" />}
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">¡Pedido Confirmado!</h1>
-          <p className="text-gray-600 mb-6">
-            Gracias por tu pedido. Te contactaremos pronto para confirmar la entrega.
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">{paymentMethod ==="Transfer" ?"Pedido pendiente de pago" :"¡Pedido Confirmado!"}</h1>
+          <p className="text-gray-600 ">
+            {paymentMethod ==="Transfer" ? 'Para confirmar tu pedido debes transferir al alias: ALIASPRUEBA y enviar el comprobante por WhatsApp al numero 3872572264': 'Gracias por tu pedido. Te contactaremos pronto para confirmar la entrega.'}
           </p>
+          {paymentMethod ==="Transfer" ? <div className="text-sm text-gray-500 mb-6"><a
+                                      href={'https://wa.me/3872572264'}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-blue-600 hover:underline"
+                                    >
+                                       <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "24px" }} />
+                                    </a>
+                                  </div>:null}
+
           <button
             onClick={() => navigate("/menu")}
             className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
@@ -311,20 +331,34 @@ export default function CheckoutPage() {
                   placeholder="Calle, número, piso, depto"
                 />
               </div>
+ 
+              
 
+              <OSMAddressAutocomplete
+                query={customer.address}   // 🔥 lo que escribe el usuario
+                onSelect={(coords) => {
+                  setCenter(coords);
+                  setSelectedLocation(coords);
+                }}
+              />
               <div>
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
                   Ubicación (opcional)
-                </label>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={customer.location}
-                  onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Podés agregar un link de Google Maps u otra referencia"
+                </label>                
+
+                <MapSelector
+                  center={center}
+                  onSelect={(coords) => {
+                    setSelectedLocation(coords);
+                    setCenter(null);   // 🔥 evita que el mapa se siga moviendo
+                  }}
                 />
+
+                {customer.location && (
+                  <p className="mt-2 text-sm text-green-700 font-medium">
+                    Punto seleccionado: https://maps.google.com/?q={customer.location}
+                  </p>
+                )}
               </div>
 
               <div>

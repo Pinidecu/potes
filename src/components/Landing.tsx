@@ -16,6 +16,7 @@ import { ImageSlideshow } from "./ImageSlideshow";
 import { bannerImages, reviews } from "../data/sampleData";
 import { makeQuery } from "../utils/api";
 import { useSnackbar } from "notistack";
+import MapSelector from "./MapSelector";
 
 interface Salad {
   _id: string
@@ -223,7 +224,7 @@ const Landing: React.FC = () => {
 
           {salads.length === 0 && !loading && (
             <div className="text-center text-gray-600 mb-6">
-              No hay ensaladas disponibles en este momento.
+              No hay tartas disponibles en este momento.
             </div>
           )}
 
