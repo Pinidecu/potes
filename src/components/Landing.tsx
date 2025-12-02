@@ -179,20 +179,20 @@ const Landing: React.FC = () => {
               .map((salad) => (
                 <div
                   key={salad._id}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow flex flex-col"
                 >
                   <img
                     src={salad.image || "/placeholder.svg"}
                     alt={salad.name}
                     className="w-full h-48 object-cover"
                   />
-                  <div className="p-6">
+                  <div className="p-6 flex flex-col flex-1">
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
                       {salad.name}
                     </h3>
                     <p className="text-gray-600 mb-4">{salad.description}</p>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mt-auto">
                       <span className="text-2xl font-bold text-green-600">
                         ${salad.price}
                       </span>
