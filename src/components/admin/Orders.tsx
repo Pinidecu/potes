@@ -600,7 +600,7 @@ export default function OrdersPage() {
                                     order.paymentMethod === "Transfer" ? <div>Transferencia</div> :<div>Vacio</div>
                                   )} 
                                 </td>
-                                <td className="px-6 py-4 text-sm font-medium space-x-2">
+                                <td className="px-6 py-4 text-sm font-medium ">
                                   <button
                                     onClick={() => openEditModal(order)}
                                     className="text-blue-600 hover:text-blue-900"
