@@ -1,9 +1,17 @@
 import React from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, Navigate } from 'react-router-dom';
 import { BarChart3, ShoppingBag, UtensilsCrossed, Package } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
   const location = useLocation();
+
+  // 🔐 Verificar si está logueado
+  const isAuthenticated = sessionStorage.getItem("adminAuth") === "true";
+
+  // ❌ Si NO está autenticado ➜ redirigir a login
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" replace />;
+  }
 
   const navigation = [
     {

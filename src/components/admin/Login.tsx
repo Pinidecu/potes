@@ -12,13 +12,16 @@ const Login: React.FC = () => {
 
   const login = (username: string, password: string): boolean => {
     // Simulated login logic
-    return username === 'ezequieldecu@gmail.com' && password === '123456';
+    return username === 'pote@gmail.com' && password === '123456';
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+     
+
     if (login(credentials.username, credentials.password)) {
+      sessionStorage.setItem("adminAuth", "true");  
       navigate('/admin');
     } else {
       setError('Credenciales inválidas.');

@@ -250,6 +250,16 @@ export default function IngredientsPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            onClick={() => handleChangeStatus(ingredient)}
+                            className={
+                              `rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
+                                ingredient.active ? "bg-yellow-600 hover:bg-yellow-700" : "bg-green-600 hover:bg-green-700"
+                              }`
+                            }
+                          >
+                            {ingredient.active ? "Desactivar" : "Activar"}
+                          </button>
+                          <button
                             onClick={() => handleEditOpen(ingredient)}
                             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                           >
@@ -263,16 +273,7 @@ export default function IngredientsPage() {
                             Eliminar
                           </button>
                           
-                          <button
-                            onClick={() => handleChangeStatus(ingredient)}
-                            className={
-                              `rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
-                                ingredient.active ? "bg-yellow-600 hover:bg-yellow-700" : "bg-green-600 hover:bg-green-700"
-                              }`
-                            }
-                          >
-                            {ingredient.active ? "Desactivar" : "Activar"}
-                          </button>
+                           
                         </div>
                       </td>
                     </tr>
