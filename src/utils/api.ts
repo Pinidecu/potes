@@ -10,8 +10,10 @@ type SnackbarFn = (
 type Callback<T = any> = (data: T) => void;
 type SetLoadingFn = (loading: boolean) => void;
 
+ 
+
 const api: AxiosInstance = axios.create({
-  baseURL: "http://localhost:4000/api",
+  baseURL: "/api",
   headers: {
     "Content-Type": "application/json",
   },

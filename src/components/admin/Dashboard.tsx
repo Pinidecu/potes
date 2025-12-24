@@ -122,7 +122,7 @@ const Dashboard: React.FC = () => {
 
   const getSaladName = (salad: Salad | string): string => {
     if (typeof salad === "string") return "N/A"
-    return salad.name
+    return salad?.name||''
   }
 
   const getIngredientNames = (extras: (Ingredient | string)[]): string => {
@@ -225,7 +225,7 @@ const Dashboard: React.FC = () => {
                         <div className="text-sm text-gray-900">
                           {order.cart.map((item, idx) => (
                             <div key={idx} className="mb-2">
-                              <span className="font-medium">{getSaladName(item.salad)}</span>
+                              <span className="font-medium">{getSaladName(item.salad)||''}</span>
                               <span className="text-gray-500"> x{item.quantity}</span>
                               {item.extra.length > 0 && (
                                 <div className="text-xs text-gray-500 ml-2">

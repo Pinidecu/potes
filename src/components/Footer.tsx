@@ -2,6 +2,10 @@ import React from 'react';
 import { MapPin, Phone, Mail, Facebook, Instagram, Twitter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+
+
 export const Footer: React.FC = () => {
   return (
     <footer className="bg-gray-800 text-white">
@@ -19,9 +23,16 @@ export const Footer: React.FC = () => {
               </a>
               <a href="https://www.instagram.com/pote.alimentos/" target='_blank' className="text-gray-300 hover:text-green-400 transition-colors">
                 <Instagram className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-gray-300 hover:text-green-400 transition-colors">
-                <Twitter className="h-5 w-5" />
+              </a> 
+              <a
+                href="https://wa.me/3872572264"
+                target="_blank"
+                className="text-gray-300 hover:text-green-400 transition-colors"
+              >
+                <FontAwesomeIcon
+                  icon={faWhatsapp}
+                  className="h-5 w-5"
+                />
               </a>
             </div>
           </div>

@@ -49,7 +49,7 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!customer.name || !customer.email || !customer.address || !customer.phone) {
+    if (!customer.name  || !customer.address || !customer.phone) {
       showNotification("Por favor completá todos los campos requeridos", "error")
       return
     }
@@ -123,7 +123,7 @@ export default function CheckoutPage() {
                                       rel="noopener noreferrer"
                                       className="text-sm text-blue-600 hover:underline"
                                     >
-                                       <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "24px" }} />
+                                       <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "50px" }} />
                                     </a>
                                   </div>:null}
 
@@ -284,7 +284,7 @@ export default function CheckoutPage() {
                 />
               </div>
 
-              <div>
+              {/* <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email *
                 </label>
@@ -298,7 +298,7 @@ export default function CheckoutPage() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="tu@email.com"
                 />
-              </div>
+              </div> */}
 
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">

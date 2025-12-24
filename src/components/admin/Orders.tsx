@@ -600,8 +600,9 @@ export default function OrdersPage() {
                                     order.paymentMethod === "Transfer" ? <div>Transferencia</div> :<div>Vacio</div>
                                   )} 
                                 </td>
-                                <td className="px-6 py-4 text-sm font-medium ">
-                                  <button
+                                <td className="px-6 py-4 text-sm font-medium  text-center ">
+                                  <div className="flex flex-col gap-1 ">
+                                    <button
                                     onClick={() => openEditModal(order)}
                                     className="text-blue-600 hover:text-blue-900"
                                   >
@@ -612,7 +613,8 @@ export default function OrdersPage() {
                                     className="text-red-600 hover:text-red-900"
                                   >
                                     Eliminar
-                                  </button>
+                                  </button>  
+                                  </div>
                                 </td>
                               </tr>
                             ))}

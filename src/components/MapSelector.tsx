@@ -19,6 +19,17 @@ interface MapSelectorProps {
 export default function MapSelector({ onSelect, center }: MapSelectorProps) {
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
 
+  const destino = { lat: -24.747460, lng: -65.408352 };
+
+  useEffect(() => {
+    if (position) {
+      const dist = L.latLng(position.lat, position.lng)
+        .distanceTo(L.latLng(destino.lat, destino.lng));
+
+      console.log("Distancia en metros:", dist);
+    }
+  }, [position]);
+
   // Obtener ubicación inicial del dispositivo
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
