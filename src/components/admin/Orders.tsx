@@ -31,8 +31,7 @@ interface CartItem {
 }
 
 interface Customer {
-  name: string
-  email: string
+  name: string 
   address: string
   phone: string
   location?: string
@@ -87,7 +86,7 @@ export default function OrdersPage() {
   }>({
     cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
     totalPrice: 0,
-    customer: { name: "", email: "", address: "", phone: "" },
+    customer: { name: "",   address: "", phone: "" },
     status: "Pending",
   })
 
@@ -157,13 +156,13 @@ export default function OrdersPage() {
     setFormData({
       cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
       totalPrice: 0,
-      customer: { name: "", email: "", address: "", phone: "" },
+      customer: { name: "",  address: "", phone: "" },
       status: "Pending",
     })
   }
 
   const handleCreate = async () => {
-    if (!formData.customer.name || !formData.customer.email || !formData.customer.address || !formData.customer.phone) {
+    if (!formData.customer.name ||  !formData.customer.address || !formData.customer.phone) {
       showNotification("Por favor completa todos los campos del cliente", "error")
       return
     }
@@ -189,7 +188,7 @@ export default function OrdersPage() {
   }
 
   const handleEdit = async () => {
-    if (!selectedOrder || !formData.customer.name || !formData.customer.email || !formData.customer.address) {
+    if (!selectedOrder || !formData.customer.name ||   !formData.customer.address) {
       showNotification("Por favor completa todos los campos del cliente", "error")
       return
     }
@@ -533,7 +532,7 @@ export default function OrdersPage() {
                               <tr key={order._id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4">
                                   <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
-                                  <div className="text-sm text-gray-500">{order.customer.email}</div>
+                                  {/* <div className="text-sm text-gray-500">{order.customer.email}</div> */}
                                   <div className="text-sm text-gray-500">{order.customer.phone}</div>                                   
                                   <div className="text-sm text-gray-500"><a
                                       href={'https://wa.me/' + order.customer.phone}
@@ -641,7 +640,7 @@ export default function OrdersPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-900">Nueva Orden</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Nueva Ordennn</h2>
               </div>
               <div className="p-6 space-y-6">
                 {/* Customer Info */}
@@ -663,7 +662,7 @@ export default function OrdersPage() {
                         placeholder="Nombre del cliente"
                       />
                     </div>
-                    <div>
+                    {/* <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
                       <input
                         type="email"
@@ -677,7 +676,7 @@ export default function OrdersPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="email@ejemplo.com"
                       />
-                    </div>
+                    </div> */}
 
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
@@ -916,7 +915,7 @@ export default function OrdersPage() {
                         placeholder="Nombre del cliente"
                       />
                     </div>
-                    <div>
+                    {/* <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
                       <input
                         type="email"
@@ -930,7 +929,7 @@ export default function OrdersPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="email@ejemplo.com"
                       />
-                    </div>
+                    </div> */}
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
                       <input
