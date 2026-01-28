@@ -681,9 +681,9 @@ export default function OrdersPage() {
                             {statusOrders.map((order) => (
                               <tr key={order._id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4">
-                                  <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
+                                  <div className="text-sm font-medium text-gray-900">{order.customer?.name ?? "Sin nombre"}</div>
                                   {/* <div className="text-sm text-gray-500">{order.customer.email}</div> */}
-                                  <div className="text-sm text-gray-500">{order.customer.phone}</div>                                   
+                                  <div className="text-sm text-gray-500">  {order.customer?.phone ?? "Sin telefono"}</div>                                   
                                   <div className="text-sm text-gray-500"><a
                                       href={'https://wa.me/' + order.customer.phone}
                                       target="_blank"
@@ -693,7 +693,7 @@ export default function OrdersPage() {
                                        <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "24px" }} />
                                     </a>
                                   </div>
-                                  <div className="text-sm text-gray-500">{order.customer.address}</div>
+                                  <div className="text-sm text-gray-500">  {order.customer?.address ?? "Sin dirección"}</div>
                                    
                                   {order.customer.location && (
                                     <a

@@ -223,9 +223,9 @@ const Dashboard: React.FC = () => {
                   {recentOrders.map((order) => (
                     <tr key={order._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
-                        <div className="text-sm text-gray-500">{order.customer.email}</div>
-                        <div className="text-sm text-gray-500">{order.customer.address}</div>
+                        <div className="text-sm font-medium text-gray-900">{order.customer?.name ?? "Sin nombre"}</div>
+                        <div className="text-sm text-gray-500">{order.customer?.email ?? "Sin email"}</div>
+                        <div className="text-sm text-gray-500">{order.customer?.address ?? "Sin direccion"}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
