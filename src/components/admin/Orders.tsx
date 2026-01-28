@@ -79,28 +79,34 @@ export default function OrdersPage() {
 
   // Form state
   const [formData, setFormData] = useState<{
-    cart: CartItem[]
-    totalPrice: number
-    customer: Customer
-    status: string
-  }>({
-    cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
-    totalPrice: 0,
-    customer: { name: "",   address: "", phone: "" },
-    status: "Pending",
-  })
+  cart: CartItem[]
+  totalPrice: number
+  customer: Customer
+  status: Order["status"]
+  paymentMethod: Order["paymentMethod"]
+  cashAmount?: number
+}>({
+  cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
+  totalPrice: 0,
+  customer: { name: "", address: "", phone: "", location: "" },
+  status: "Pending",
+  paymentMethod: "Cash",
+  cashAmount: 0,
+})
 
   const [expandedSections, setExpandedSections] = useState<{
-    Pending: boolean
-    "In Progress": boolean
-    Shipped: boolean
-    Delivered: boolean
-  }>({
-    Pending: true,
-    "In Progress": true,
-    Shipped: false,
-    Delivered: false,
-  })
+  Pending: boolean
+  "In Progress": boolean
+  Shipped: boolean
+  Delivered: boolean
+  Cancelled: boolean
+}>({
+  Pending: true,
+  "In Progress": true,
+  Shipped: false,
+  Delivered: false,
+  Cancelled: false,
+})
 
   useEffect(() => {
     fetchOrders()
@@ -108,18 +114,54 @@ export default function OrdersPage() {
     fetchIngredients()
   }, [])
 
+
+  useEffect(() => {
+    if (!salads.length) return; // sin ensaladas no podemos calcular
+  const computedTotal = formData.cart.reduce((acc, item) => {
+    const salad = salads.find((s) => s._id === item.salad)
+    const saladPrice = salad?.price ?? 0
+
+    const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
+      const ing = ingredients.find((i) => i._id === ingId)
+      return sum + (ing?.priceAsExtra ?? 0)
+    }, 0)
+
+    return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
+  }, 0)
+
+  setFormData((prev) => {
+    const newTotal = Number(computedTotal.toFixed(2))
+    return {
+      ...prev,
+      totalPrice: newTotal,
+      cashAmount:
+        prev.paymentMethod === "Cash"
+          ? (prev.cashAmount == null || prev.cashAmount < newTotal ? newTotal : prev.cashAmount)
+          : prev.cashAmount,
+    }
+  })
+  // ⚠️ importantísimo: no pongas formData entero en deps
+}, [formData.cart, salads, ingredients])
+
+
   const fetchOrders = async () => {
-    await makeQuery(
-      null,
-      "getOrders",
-      {},
-      enqueueSnackbar,
-      (data) => {
-        setOrders(data)
-      },
-      setLoading,
-    )
-  }
+  await makeQuery(
+    null,
+    "getOrders",
+    {},
+    enqueueSnackbar,
+    (data: any) => {
+      const list =
+        Array.isArray(data) ? data :
+        Array.isArray(data?.data) ? data.data :
+        Array.isArray(data?.orders) ? data.orders :
+        []
+
+      setOrders(list)
+    },
+    setLoading,
+  )
+}
 
   const fetchSalads = async () => {
     await makeQuery(
@@ -153,69 +195,170 @@ export default function OrdersPage() {
   }
 
   const resetForm = () => {
-    setFormData({
-      cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
-      totalPrice: 0,
-      customer: { name: "",  address: "", phone: "" },
-      status: "Pending",
-    })
-  }
+  setFormData({
+    cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
+    totalPrice: 0,
+    customer: { name: "", address: "", phone: "", location: "" },
+    status: "Pending",
+    paymentMethod: "Cash",
+    cashAmount: 0,
+  })
+}
 
   const handleCreate = async () => {
-    if (!formData.customer.name ||  !formData.customer.address || !formData.customer.phone) {
-      showNotification("Por favor completa todos los campos del cliente", "error")
-      return
-    }
-
-    if (formData.cart.length === 0 || !formData.cart[0].salad) {
-      showNotification("Por favor agrega al menos una ensalada al carrito", "error")
-      return
-    }
-
-    await makeQuery(
-      null,
-      "createOrder",
-      formData,
-      enqueueSnackbar,
-      () => {
-        showNotification("Orden creada exitosamente", "success")
-        setShowCreateModal(false)
-        resetForm()
-        fetchOrders()
-      },
-      setLoading,
-    )
+  // Validaciones básicas (igual que cliente)
+  if (!formData.customer.name || !formData.customer.address || !formData.customer.phone) {
+    showNotification("Por favor completá todos los campos requeridos", "error")
+    return
   }
+
+  if (!formData.paymentMethod) {
+    showNotification("Por favor seleccioná un medio de pago", "error")
+    return
+  }
+
+  if (!formData.cart.length || !formData.cart[0].salad) {
+    showNotification("Por favor agrega al menos una ensalada al carrito", "error")
+    return
+  }
+
+  // Total calculado como en cliente
+  const computedTotal = formData.cart.reduce((acc, item) => {
+    const salad = salads.find((s) => s._id === item.salad)
+    const saladPrice = salad?.price ?? 0
+
+    const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
+      const ing = ingredients.find((i) => i._id === ingId)
+      return sum + (ing?.priceAsExtra ?? 0)
+    }, 0)
+
+    return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
+  }, 0)
+
+  if (formData.paymentMethod === "Cash") {
+    const cash = formData.cashAmount ?? 0
+    if (!cash) {
+      showNotification("Por favor ingresá con cuánto vas a pagar", "error")
+      return
+    }
+    if (cash < computedTotal) {
+      showNotification("El monto en efectivo debe ser mayor o igual al total", "error")
+      return
+    }
+  }
+
+  // Armado del body EXACTO como el cliente
+  const orderData = {
+    cart: formData.cart.map((item) => ({
+      salad: item.salad,
+      quantity: item.quantity,
+      removedIngredients: item.removedIngredients,
+      extra: item.extra,
+    })),
+    totalPrice: Number(computedTotal.toFixed(2)),
+    customer: {
+      name: formData.customer.name,
+      address: formData.customer.address,
+      phone: formData.customer.phone,
+      location: formData.customer.location,
+    },
+    status: formData.status,
+    paymentMethod: formData.paymentMethod,
+    ...(formData.paymentMethod === "Cash" && { cashAmount: Number(formData.cashAmount) }),
+  }
+
+  await makeQuery(
+    null,
+    "createOrder",
+    orderData,
+    enqueueSnackbar,
+    () => {
+      showNotification("Orden creada exitosamente", "success")
+      setShowCreateModal(false)
+      resetForm()
+      fetchOrders()
+    },
+    setLoading,
+  )
+}
 
   const handleEdit = async () => {
-    if (!selectedOrder || !formData.customer.name ||   !formData.customer.address) {
-      showNotification("Por favor completa todos los campos del cliente", "error")
-      return
-    }
+  if (!selectedOrder) return
 
-    if (formData.cart.length === 0 || !formData.cart[0].salad) {
-      showNotification("Por favor agrega al menos una ensalada al carrito", "error")
-      return
-    }
-
-    await makeQuery(
-      null,
-      "updateOrder",
-      {
-        id: selectedOrder._id,
-        ...formData,
-      },
-      enqueueSnackbar,
-      () => {
-        showNotification("Orden actualizada exitosamente", "success")
-        setShowEditModal(false)
-        setSelectedOrder(null)
-        resetForm()
-        fetchOrders()
-      },
-      setLoading,
-    )
+  if (!formData.customer.name || !formData.customer.address || !formData.customer.phone) {
+    showNotification("Por favor completá todos los campos requeridos", "error")
+    return
   }
+
+  if (!formData.paymentMethod) {
+    showNotification("Por favor seleccioná un medio de pago", "error")
+    return
+  }
+
+  if (!formData.cart.length || !formData.cart[0].salad) {
+    showNotification("Por favor agrega al menos una ensalada al carrito", "error")
+    return
+  }
+
+  // recalcular total (igual al cliente)
+  const computedTotal = formData.cart.reduce((acc, item) => {
+    const salad = salads.find((s) => s._id === item.salad)
+    const saladPrice = salad?.price ?? 0
+
+    const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
+      const ing = ingredients.find((i) => i._id === ingId)
+      return sum + (ing?.priceAsExtra ?? 0)
+    }, 0)
+
+    return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
+  }, 0)
+
+  if (formData.paymentMethod === "Cash") {
+    const cash = formData.cashAmount ?? 0
+    if (!cash) {
+      showNotification("Por favor ingresá con cuánto vas a pagar", "error")
+      return
+    }
+    if (cash < computedTotal) {
+      showNotification("El monto en efectivo debe ser mayor o igual al total", "error")
+      return
+    }
+  }
+
+  const orderData = {
+    cart: formData.cart.map((item) => ({
+      salad: item.salad,
+      quantity: item.quantity,
+      removedIngredients: item.removedIngredients,
+      extra: item.extra,
+    })),
+    totalPrice: Number(computedTotal.toFixed(2)),
+    customer: {
+      name: formData.customer.name,
+      address: formData.customer.address,
+      phone: formData.customer.phone,
+      location: formData.customer.location,
+    },
+    status: formData.status,
+    paymentMethod: formData.paymentMethod,
+    ...(formData.paymentMethod === "Cash" && { cashAmount: Number(formData.cashAmount) }),
+  }
+
+  await makeQuery(
+    null,
+    "updateOrder",
+    { id: selectedOrder._id, ...orderData },
+    enqueueSnackbar,
+    () => {
+      showNotification("Orden actualizada exitosamente", "success")
+      setShowEditModal(false)
+      setSelectedOrder(null)
+      resetForm()
+      fetchOrders()
+    },
+    setLoading,
+  )
+}
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     await makeQuery(
@@ -250,20 +393,22 @@ export default function OrdersPage() {
   }
 
   const openEditModal = (order: Order) => {
-    setSelectedOrder(order)
-    setFormData({
-      cart: order.cart.map((item) => ({
-        salad: typeof item.salad === "string" ? item.salad : item.salad._id,
-        removedIngredients: item.removedIngredients,
-        quantity: item.quantity,
-        extra: item.extra.map((e) => (typeof e === "string" ? e : e._id)),
-      })),
-      totalPrice: order.totalPrice,
-      customer: order.customer,
-      status: order.status,
-    })
-    setShowEditModal(true)
-  }
+  setSelectedOrder(order)
+  setFormData({
+    cart: order.cart.map((item) => ({
+      salad: typeof item.salad === "string" ? item.salad : item.salad._id,
+      removedIngredients: item.removedIngredients,
+      quantity: item.quantity,
+      extra: item.extra.map((e) => (typeof e === "string" ? e : e._id)),
+    })),
+    totalPrice: order.totalPrice,
+    customer: order.customer,
+    status: order.status,
+    paymentMethod: order.paymentMethod ?? "Cash",
+    cashAmount: order.cashAmount ?? 0,
+  })
+  setShowEditModal(true)
+}
 
   const openDeleteModal = (order: Order) => {
     setSelectedOrder(order)
@@ -308,16 +453,20 @@ export default function OrdersPage() {
     })
   }
 
-  const toggleSection = (status: "Pending" | "In Progress" | "Shipped" | "Delivered") => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [status]: !prev[status],
-    }))
-  }
+  const toggleSection = (
+  status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled"
+) => {
+  setExpandedSections((prev) => ({
+    ...prev,
+    [status]: !prev[status],
+  }))
+}
 
-  const getOrdersByStatus = (status: "Pending" | "In Progress" | "Shipped" | "Delivered") => {
-    return filteredOrders.filter((order) => order.status === status)
-  }
+  const getOrdersByStatus = (
+  status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled"
+) => {
+  return filteredOrders.filter((order) => order.status === status)
+}
 
   const statusSections = [
     { key: "Pending" as const, label: "Pendiente", color: "bg-yellow-50 border-yellow-200" },
@@ -380,7 +529,6 @@ export default function OrdersPage() {
       totalTransferencia,
     };
   }, [filteredOrders]);
-
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -477,6 +625,8 @@ export default function OrdersPage() {
           <div className="space-y-4">
             {statusSections.map((section) => {
               const statusOrders = getOrdersByStatus(section.key)
+              
+  console.log("statusOrders", statusOrders)
               const isExpanded = expandedSections[section.key]
 
               return (
@@ -544,14 +694,15 @@ export default function OrdersPage() {
                                     </a>
                                   </div>
                                   <div className="text-sm text-gray-500">{order.customer.address}</div>
+                                   
                                   {order.customer.location && (
                                     <a
-                                      href={order.customer.location}
+                                      className="mt-2 text-sm text-green-700 font-medium underline block"
+                                      href={`https://maps.google.com/?q=${order.customer.location}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-sm text-blue-600 hover:underline"
                                     >
-                                      Ver ubicación
+                                      Ver punto en Google Maps
                                     </a>
                                   )}
                                 </td>
@@ -566,8 +717,18 @@ export default function OrdersPage() {
                                             Extras: {getIngredientNames(item.extra)}
                                           </div>
                                         )}
+                                        {item.removedIngredients && (
+                                          <div className="text-sm text-gray-600 mb-2"> 
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs ">
+                                                {item.removedIngredients}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
-                                    ))}
+                                      
+                                    ))}                                    
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 text-sm font-medium text-gray-900">
@@ -838,12 +999,13 @@ export default function OrdersPage() {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={formData.totalPrice}
-                      onChange={(e) => setFormData({ ...formData, totalPrice: Number.parseFloat(e.target.value) || 0 })}
+                      readOnly
+                      value={formData.totalPrice} 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="0.00"
                     />
                   </div>
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Estado *</label>
                     <Select
@@ -865,6 +1027,53 @@ export default function OrdersPage() {
                       }}
                     />
                   </div>
+                  <div className="md:col-span-2">
+  <label className="block text-sm font-medium text-gray-700 mb-3">Medio de pago *</label>
+  <div className="grid grid-cols-2 gap-3">
+    <button
+      type="button"
+      onClick={() => setFormData({ ...formData, paymentMethod: "Cash", cashAmount: formData.cashAmount ?? formData.totalPrice })}
+      className={`p-3 rounded-lg border-2 transition-all font-medium ${
+        formData.paymentMethod === "Cash"
+          ? "border-blue-600 bg-blue-50 text-blue-700"
+          : "border-gray-300 hover:border-gray-400"
+      }`}
+    >
+      Efectivo
+    </button>
+    <button
+      type="button"
+      onClick={() => setFormData({ ...formData, paymentMethod: "Transfer", cashAmount: undefined })}
+      className={`p-3 rounded-lg border-2 transition-all font-medium ${
+        formData.paymentMethod === "Transfer"
+          ? "border-blue-600 bg-blue-50 text-blue-700"
+          : "border-gray-300 hover:border-gray-400"
+      }`}
+    >
+      Transferencia
+    </button>
+  </div>
+</div>
+
+{formData.paymentMethod === "Cash" && (
+  <div className="md:col-span-2">
+    <label className="block text-sm font-medium text-gray-700 mb-2">¿Con cuánto paga? *</label>
+    <input
+      type="number"
+      min={formData.totalPrice}
+      step="0.01"
+      value={formData.cashAmount ?? ""}
+      onChange={(e) => setFormData({ ...formData, cashAmount: Number(e.target.value) || 0 })}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+      placeholder={`Mínimo $${formData.totalPrice.toFixed(2)}`}
+    />
+    {!!formData.cashAmount && formData.cashAmount > formData.totalPrice && (
+      <p className="mt-2 text-sm text-green-600">
+        Vuelto: ${(formData.cashAmount - formData.totalPrice).toFixed(2)}
+      </p>
+    )}
+  </div>
+)}
                 </div>
               </div>
               <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
@@ -1100,7 +1309,7 @@ export default function OrdersPage() {
                       min="0"
                       step="0.01"
                       value={formData.totalPrice}
-                      onChange={(e) => setFormData({ ...formData, totalPrice: Number.parseFloat(e.target.value) || 0 })}
+                      readOnly
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="0.00"
                     />
@@ -1126,6 +1335,53 @@ export default function OrdersPage() {
                       }}
                     />
                   </div>
+                  <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Medio de pago *</label>
+  <div className="grid grid-cols-2 gap-3">
+    <button
+      type="button"
+      onClick={() => setFormData({ ...formData, paymentMethod: "Cash", cashAmount: formData.cashAmount ?? formData.totalPrice })}
+      className={`p-3 rounded-lg border-2 transition-all font-medium ${
+        formData.paymentMethod === "Cash"
+          ? "border-blue-600 bg-blue-50 text-blue-700"
+          : "border-gray-300 hover:border-gray-400"
+      }`}
+    >
+      Efectivo
+    </button>
+    <button
+      type="button"
+      onClick={() => setFormData({ ...formData, paymentMethod: "Transfer", cashAmount: undefined })}
+      className={`p-3 rounded-lg border-2 transition-all font-medium ${
+        formData.paymentMethod === "Transfer"
+          ? "border-blue-600 bg-blue-50 text-blue-700"
+          : "border-gray-300 hover:border-gray-400"
+      }`}
+    >
+      Transferencia
+    </button>
+  </div>
+</div>
+
+{formData.paymentMethod === "Cash" && (
+  <div className="md:col-span-2">
+    <label className="block text-sm font-medium text-gray-700 mb-2">¿Con cuánto paga? *</label>
+    <input
+      type="number"
+      min={formData.totalPrice}
+      step="0.01"
+      value={formData.cashAmount ?? ""}
+      onChange={(e) => setFormData({ ...formData, cashAmount: Number(e.target.value) || 0 })}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+      placeholder={`Mínimo $${formData.totalPrice.toFixed(2)}`}
+    />
+    {!!formData.cashAmount && formData.cashAmount > formData.totalPrice && (
+      <p className="mt-2 text-sm text-green-600">
+        Vuelto: ${(formData.cashAmount - formData.totalPrice).toFixed(2)}
+      </p>
+    )}
+  </div>
+)}
                 </div>
               </div>
               <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">

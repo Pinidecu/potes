@@ -35,17 +35,24 @@ const Landing: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const loadSalads = async () => {
-    await makeQuery(
-      null,
-      "getSalads",
-      {},
-      enqueueSnackbar,
-      (data) => {
-        setSalads(data)
-      },
-      setLoading,
-    )
-  }
+  await makeQuery(
+    null,
+    "getSalads",
+    {},
+    enqueueSnackbar,
+    (data) => {
+      // soporta varios formatos típicos de API
+      const list =
+        Array.isArray(data) ? data :
+        Array.isArray(data?.data) ? data.data :
+        Array.isArray(data?.salads) ? data.salads :
+        []
+
+      setSalads(list)
+    },
+    setLoading,
+  )
+}
 
   useEffect(() => {
     loadSalads();

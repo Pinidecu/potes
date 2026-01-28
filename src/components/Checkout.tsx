@@ -339,6 +339,11 @@ export default function CheckoutPage() {
                 onSelect={(coords) => {
                   setCenter(coords);
                   setSelectedLocation(coords);
+
+                  setCustomer((prev) => ({
+                  ...prev,
+                  location: `${coords.lat},${coords.lng}`,
+                }));
                 }}
               />
               <div>
@@ -351,13 +356,23 @@ export default function CheckoutPage() {
                   onSelect={(coords) => {
                     setSelectedLocation(coords);
                     setCenter(null);   // 🔥 evita que el mapa se siga moviendo
+
+                    setCustomer((prev) => ({
+                      ...prev,
+                      location: `${coords.lat},${coords.lng}`,
+                    }));
                   }}
                 />
 
                 {customer.location && (
-                  <p className="mt-2 text-sm text-green-700 font-medium">
-                    Punto seleccionado: https://maps.google.com/?q={customer.location}
-                  </p>
+                  <a
+                    className="mt-2 text-sm text-green-700 font-medium underline block"
+                    href={`https://maps.google.com/?q=${customer.location}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Ver punto en Google Maps
+                  </a>
                 )}
               </div>
 

@@ -100,16 +100,22 @@ const Dashboard: React.FC = () => {
   
   
     const fetchOrders = async () => {
-      await makeQuery(
-        null,
-        "getOrders",
-        {},
-        enqueueSnackbar,
-        (data) => {
-          setOrders(data)
-        },
-      )
-    }
+  await makeQuery(
+    null,
+    "getOrders",
+    {},
+    enqueueSnackbar,
+    (data: any) => {
+      const list =
+        Array.isArray(data) ? data :
+        Array.isArray(data?.data) ? data.data :
+        Array.isArray(data?.orders) ? data.orders :
+        []
+
+      setOrders(list)
+    },
+  )
+}
   
 
   useEffect(() => {
@@ -117,7 +123,7 @@ const Dashboard: React.FC = () => {
     fetchOrders();
   }, []);
 
-  const recentOrders = orders.slice(-5).reverse();
+  const recentOrders = (Array.isArray(orders) ? orders : []).slice(-5).reverse()
   
 
   const getSaladName = (salad: Salad | string): string => {
@@ -214,7 +220,7 @@ const Dashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {orders.map((order) => (
+                  {recentOrders.map((order) => (
                     <tr key={order._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>

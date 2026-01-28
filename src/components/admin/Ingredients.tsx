@@ -9,6 +9,7 @@ interface Ingredient {
   _id: string
   name: string
   priceAsExtra: number
+  precioDescuento: number
   active: boolean
   type: "base" | "vegetal" | "premium" | "proteina" | "aderezo" | "extra"
 }
@@ -23,6 +24,7 @@ export default function IngredientsPage() {
   const [formData, setFormData] = useState({
     name: "",
     priceAsExtra: "",
+    precioDescuento: "",
     type: "base" as Ingredient["type"],
   })
   const [snackbar, setSnackbar] = useState<{
@@ -53,7 +55,7 @@ export default function IngredientsPage() {
   }, [])
 
   const handleCreateOpen = () => {
-    setFormData({ name: "", priceAsExtra: "", type: "base" })
+    setFormData({ name: "", priceAsExtra: "", precioDescuento: "", type: "base" })
     setIsCreateModalOpen(true)
   }
 
@@ -62,6 +64,7 @@ export default function IngredientsPage() {
     setFormData({
       name: ingredient.name,
       priceAsExtra: ingredient.priceAsExtra.toString(),
+      precioDescuento: ingredient.precioDescuento.toString(),
       type: ingredient.type,
     })
     setIsEditModalOpen(true)
@@ -75,7 +78,7 @@ export default function IngredientsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.priceAsExtra) {
+    if (!formData.name || !formData.priceAsExtra || !formData.precioDescuento) {
       showSnackbar("Complete los campos obligatorios", { variant: "error" })
       return
     }
@@ -86,6 +89,7 @@ export default function IngredientsPage() {
       {
         name: formData.name,
         priceAsExtra: Number.parseFloat(formData.priceAsExtra),
+        precioDescuento: Number.parseFloat(formData.precioDescuento),
         type: formData.type,
       },
       showSnackbar,
@@ -101,7 +105,7 @@ export default function IngredientsPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.priceAsExtra) {
+    if (!formData.name || !formData.priceAsExtra || !formData.precioDescuento) {
       showSnackbar("Complete los campos obligatorios", { variant: "error" })
       return
     }
@@ -113,6 +117,7 @@ export default function IngredientsPage() {
         id: selectedIngredient?._id,
         name: formData.name,
         priceAsExtra: Number.parseFloat(formData.priceAsExtra),
+        precioDescuento: Number.parseFloat(formData.precioDescuento),
         type: formData.type,
       },
       showSnackbar,
@@ -230,6 +235,7 @@ export default function IngredientsPage() {
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Nombre</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Precio Extra</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Precio Descuento</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Tipo</th>
                   <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">Acciones</th>
                 </tr>
@@ -246,6 +252,7 @@ export default function IngredientsPage() {
                     <tr key={ingredient._id} className="transition-colors hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{ingredient.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">${ingredient.priceAsExtra.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">${ingredient.precioDescuento.toFixed(2)}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{getTypeLabel(ingredient.type)}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -313,6 +320,18 @@ export default function IngredientsPage() {
                   />
                 </div>
                 <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-900">Precio Descuento *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.precioDescuento}
+                    onChange={(e) => setFormData({ ...formData, precioDescuento: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
                   <label className="mb-2 block text-sm font-medium text-gray-900">Tipo *</label>
                   <select
                     value={formData.type}
@@ -372,6 +391,18 @@ export default function IngredientsPage() {
                     min="0"
                     value={formData.priceAsExtra}
                     onChange={(e) => setFormData({ ...formData, priceAsExtra: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-900">Precio Descuento *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.precioDescuento}
+                    onChange={(e) => setFormData({ ...formData, precioDescuento: e.target.value })}
                     className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="0.00"
                   />

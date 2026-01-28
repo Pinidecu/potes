@@ -10,6 +10,7 @@ interface Ingredient {
   _id: string
   name: string
   priceAsExtra: number
+  precioDescuento: number
   type: string
 }
 
@@ -17,7 +18,7 @@ interface Salad {
   _id: string
   name: string
   description?: string
-  base: Ingredient[]
+  base: (Ingredient | string)[]
   extras: Ingredient[]
   price: number
   image: string
@@ -49,39 +50,83 @@ export default function MenuPage() {
   }, [])
 
   const fetchSalads = () => {
-    makeQuery(
-      localStorage.getItem("token"),
-      "getSalads",
-      {},
-      enqueueSnackbar,
-      (data: Salad[]) => {
-        setSalads(data)
-      },
-      setLoading,
-      undefined,
-    )
-  }
+  makeQuery(
+    localStorage.getItem("token"),
+    "getSalads",
+    {},
+    enqueueSnackbar,
+    (data: any) => {
+      const list =
+        Array.isArray(data) ? data :
+        Array.isArray(data?.data) ? data.data :
+        Array.isArray(data?.salads) ? data.salads :
+        []
+
+      setSalads(list)
+    },
+    setLoading,
+    undefined,
+  )
+}
 
   const fetchIngredients = () => {
-    makeQuery(
-      localStorage.getItem("token"),
-      "getActiveIngredients",
-      {},
-      enqueueSnackbar,
-      (data: Ingredient[]) => {
-        setIngredients(data)
-      },
-      setLoading,
-      undefined,
-    )
+  makeQuery(
+    localStorage.getItem("token"),
+    "getActiveIngredients",
+    {},
+    enqueueSnackbar,
+    (data: any) => {
+      const list =
+        Array.isArray(data) ? data :
+        Array.isArray(data?.data) ? data.data :
+        Array.isArray(data?.ingredients) ? data.ingredients :
+        []
+
+      setIngredients(list)
+    },
+    setLoading,
+    undefined,
+  )
+}
+
+const toFullIngredient = (ing: Ingredient | string): Ingredient => {
+  const id = typeof ing === "string" ? ing : ing._id
+
+  const full = ingredients.find((i) => i._id === id)
+  if (full) return full
+
+  // fallback si no está en /active (inactivo o no cargó aún)
+  if (typeof ing !== "string") {
+    return {
+      _id: ing._id,
+      name: ing.name,
+      type: ing.type,
+      priceAsExtra: (ing as any).priceAsExtra ?? 0,
+      precioDescuento: (ing as any).precioDescuento ?? 0,
+    }
   }
 
-  const openCustomization = (salad: Salad) => {
-    setSelectedSalad(salad)
-    setSelectedExtras([])
-    setRemovedIngredients([])
-    setShowCustomization(true)
+  // último fallback (solo id)
+  return {
+    _id: id,
+    name: "Ingrediente",
+    type: "base",
+    priceAsExtra: 0,
+    precioDescuento: 0,
   }
+}
+
+ 
+
+const openCustomization = (salad: Salad) => {
+  const enrichedBase = (salad.base || []).map(toFullIngredient)
+
+  setSelectedSalad({ ...salad, base: enrichedBase })
+  setSelectedExtras([])
+  setRemovedIngredients([])
+  setShowCustomization(true)
+}
+
 
   const closeCustomization = () => {
     setShowCustomization(false)
@@ -112,12 +157,13 @@ export default function MenuPage() {
       showNotification("Ensalada agregada al carrito", "success")
       closeCustomization()
     }
-  }
-
+  } 
   const calculateCustomPrice = () => {
     if (!selectedSalad) return 0
-    const extrasPrice = selectedExtras.reduce((sum, ing) => sum + ing.priceAsExtra, 0)
-    return selectedSalad.price + extrasPrice
+    const extrasPrice = selectedExtras.reduce((sum, ing) => sum + ing.priceAsExtra, 0) 
+    const discountPrice = removedIngredients.reduce((sum, ing) => sum + (ing.precioDescuento ?? 0), 0)
+
+    return selectedSalad.price + extrasPrice - discountPrice
   }
 
   const filteredSalads = salads.filter((salad) => {
@@ -280,7 +326,7 @@ export default function MenuPage() {
                     <h3 className="text-lg font-semibold mb-4">Ingredientes base (podés quitar los que no quieras)</h3>
                     <div className="space-y-3">
                       {selectedSalad.base.map((ingredient) => {
-                        const isRemoved = removedIngredients.find((i) => i._id === ingredient._id)
+                        const isRemoved = removedIngredients.find((i) => i._id === ingredient._id) 
                         return (
                           <div
                             key={ingredient._id}
@@ -289,10 +335,15 @@ export default function MenuPage() {
                             onClick={() => toggleRemovedIngredient(ingredient)}
                           >
                             <span className={isRemoved ? "text-red-700 line-through" : "text-green-700"}>
-                              {ingredient.name}
+                              {ingredient.name}  
                             </span>
+                            
                             {isRemoved ? (
+                              <div 
+                            className={`flex items-center`}>
+                              {(ingredient.precioDescuento ?? 0) > 0 && (<span className="text-sm text-gray-500 ml-2">-${ingredient.precioDescuento}</span>)}
                               <Minus className="h-5 w-5 text-red-600" />
+                              </div>
                             ) : (
                               <Check className="h-5 w-5 text-green-600" />
                             )}

@@ -18,6 +18,7 @@ interface Ingredient {
     _id: string
     name: string
     priceAsExtra: number
+    precioDescuento: number
     type: "base" | "vegetal" | "premium" | "proteina" | "aderezo" | "extra"
 }
 
@@ -213,9 +214,9 @@ export default function SaladsPage() {
     }
 
     const baseOptions: Option[] = ingredients
-        .map((ing) => ({ value: ing._id, label: ing.name }))
+        .map((ing) => ({ value: ing._id, label: ing.name ,precioDescuento:ing.precioDescuento ,priceAsExtra: ing.priceAsExtra}))
 
-
+    console.log("baseOptions", baseOptions, ingredients)
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <div className="mx-auto max-w-7xl">
