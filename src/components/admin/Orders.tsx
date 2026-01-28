@@ -7,6 +7,7 @@ import { useSnackbar } from "notistack"
 import { ChevronDown, Phone } from "lucide-react" 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { formatMoney } from "../formatNumber"
 
 interface Ingredient {
   _id: string
@@ -591,17 +592,17 @@ export default function OrdersPage() {
 
         <div className="p-4 bg-white shadow rounded">
           <h3 className="text-sm text-gray-600">Total de pedidos</h3>
-          <p className="text-xl font-bold">${metrics.totalPedidos}</p>
+          <p className="text-xl font-bold">${formatMoney(metrics.totalPedidos)}</p>
         </div>
 
         <div className="p-4 bg-white shadow rounded">
           <h3 className="text-sm text-gray-600">Total en efectivo</h3>
-          <p className="text-xl font-bold">${metrics.totalEfectivo}</p>
+          <p className="text-xl font-bold">${formatMoney(metrics.totalEfectivo)}</p>
         </div>
 
         <div className="p-4 bg-white shadow rounded">
           <h3 className="text-sm text-gray-600">Total en transferencia</h3>
-          <p className="text-xl font-bold">${metrics.totalTransferencia}</p>
+          <p className="text-xl font-bold">${formatMoney(metrics.totalTransferencia)}</p>
         </div>
       </div>
 
