@@ -717,21 +717,38 @@ export default function OrdersPage() {
                           {order.includeCutlery ? "Incluye cubiertos" : "No incluye cubiertos"}
                         </div>
                         {order.comments?.trim() ? (
-                          <div className="relative inline-block mt-2 group">
-                            <button
-                              type="button"
-                              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                            >
-                              Ver comentarios
-                            </button>
+  <div className="relative inline-block mt-2 group">
+    <button
+      type="button"
+      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+    >
+      Ver comentarios
+    </button>
 
-                            {/* Tooltip */}
-                            <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-72 rounded-md bg-gray-900 px-3 py-2 text-xs text-white shadow-lg group-hover:block">
-                              {order.comments}
-                              <div className="absolute -top-1 left-4 h-2 w-2 rotate-45 bg-gray-900" />
-                            </div>
-                          </div>
-                        ) : null}
+    {/* Tooltip */}
+    <div className="
+      pointer-events-none
+      absolute
+      bottom-full
+      left-0
+      mb-2
+      z-50
+      hidden
+      w-72
+      rounded-md
+      bg-gray-900
+      px-3
+      py-2
+      text-xs
+      text-white
+      shadow-lg
+      group-hover:block
+    ">
+      {order.comments}
+      <div className="absolute -bottom-1 left-4 h-2 w-2 rotate-45 bg-gray-900" />
+    </div>
+  </div>
+) : null}
                                 </td>
                                 <td className="px-6 py-4">
                                   <div className="text-sm text-gray-900">
