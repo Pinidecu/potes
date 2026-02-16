@@ -12,8 +12,8 @@ import { Footer } from "./components/Footer";
 import Ingredients from "./components/admin/Ingredients";
 import SaladsPage from "./components/admin/Salads";
 import { SnackbarProvider } from "notistack";
-import { CartProvider } from "./context/CartProvider";
-import DistanciaPage from "./components/distancia";
+import { CartProvider } from "./context/CartProvider"; 
+import DistanciaPage from "./components/Distancia";
 
 // Layout principal con navegación
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
