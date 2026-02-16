@@ -20,7 +20,6 @@ export default function DeliveryBanner() {
     const r = await checkDeliveryRadius({ target: TARGET, maxKm: MAX_KM });
     setResult(r);
 
-    // ✅ Solo cachear si fue OK (si falla, no dejes “pegado” el error)
     if (r.ok) {
       writeCachedDeliveryCheck(r);
     } else {
@@ -33,72 +32,71 @@ export default function DeliveryBanner() {
   useEffect(() => {
     const cached = readCachedDeliveryCheck(CACHE_MAX_AGE_MS);
 
-    // ✅ Si hay cache OK, lo usamos
     if (cached?.ok) {
       setResult(cached);
       return;
     }
 
-    // ✅ Si no hay cache OK, intentamos pedir automático SOLO si el permiso ya está concedido.
-    // Si está en "prompt" o "denied", mostramos un banner y esperamos a que el usuario haga click en "Reintentar".
     (async () => {
       try {
         if (!("permissions" in navigator)) {
-          // Fallback: intentamos una vez (en algunos browsers puede fallar sin gesto)
           runCheck();
           return;
         }
 
-        const perm = await (navigator as any).permissions.query({ name: "geolocation" });
+        const perm = await (navigator as any).permissions.query({
+          name: "geolocation",
+        });
 
         if (perm.state === "granted") {
           runCheck();
         } else if (perm.state === "denied") {
           setResult({ ok: false, reason: "denied" });
         } else {
-          // prompt
           setResult({ ok: false, reason: "unavailable" });
         }
       } catch {
-        // Fallback
         runCheck();
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Si aún no sabemos nada, no mostramos nada
   if (!result) return null;
 
-  // Si ok y dentro del radio -> no mostramos banner
   if (result.ok && result.distanceKm <= MAX_KM) return null;
 
-  // Mensajes
   let message = "";
+  let bgColor = "bg-red-600";
+
   if (result.ok && result.distanceKm > MAX_KM) {
-    message = `Lo sentimos 😕. Estás a ${result.distanceKm.toFixed(
+    message = `Lo sentimos 😕 Estás a ${result.distanceKm.toFixed(
       2
     )} km y solo hacemos envíos hasta ${MAX_KM} km.`;
+    bgColor = "bg-red-600";
   } else {
     message =
       result.reason === "denied"
-        ? "Necesitamos tu ubicación para confirmar si estás dentro del radio de entrega (permiso denegado)."
-        : "Necesitamos tu ubicación para confirmar si estás dentro del radio de entrega.";
+        ? "Necesitamos tu ubicación para confirmar el radio de entrega (permiso denegado)."
+        : "Necesitamos tu ubicación para confirmar el radio de entrega.";
+    bgColor = "bg-yellow-500";
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600 text-white">
-      <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm font-medium">{message}</div>
+    <div className="fixed top-6 right-6 z-[9999] w-[90%] sm:w-[40%] lg:w-[30%]">
+      <div
+        className={`${bgColor} text-white rounded-xl shadow-2xl p-4 animate-fade-in`}
+      >
+        <div className="text-sm font-medium mb-3">{message}</div>
 
-        <div className="flex gap-2">
+        <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={() => {
               clearCachedDeliveryCheck();
               runCheck();
             }}
-            className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-md"
+            className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-2 rounded-md transition"
             disabled={loading}
           >
             {loading ? "Verificando..." : "Reintentar"}
@@ -107,7 +105,7 @@ export default function DeliveryBanner() {
           <button
             type="button"
             onClick={() => setResult(null)}
-            className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-md"
+            className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-2 rounded-md transition"
           >
             Cerrar
           </button>

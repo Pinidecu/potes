@@ -22,7 +22,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <>
       <DeliveryBanner />
       <Navigation />
-      <div className="pt-12">{children}</div>
+      {children}
     </>
   );
 };
