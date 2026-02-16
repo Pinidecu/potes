@@ -14,11 +14,13 @@ import SaladsPage from "./components/admin/Salads";
 import { SnackbarProvider } from "notistack";
 import { CartProvider } from "./context/CartProvider"; 
 import DistanciaPage from "./components/Distancia";
+import DeliveryBanner from "./components/DeliveryBanner";
 
 // Layout principal con navegación
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <>
+      <DeliveryBanner />
       <Navigation />
       {children}
     </>
