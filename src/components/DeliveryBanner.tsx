@@ -19,23 +19,55 @@ export default function DeliveryBanner() {
     setLoading(true);
     const r = await checkDeliveryRadius({ target: TARGET, maxKm: MAX_KM });
     setResult(r);
-    writeCachedDeliveryCheck(r);
+
+    // ✅ Solo cachear si fue OK (si falla, no dejes “pegado” el error)
+    if (r.ok) {
+      writeCachedDeliveryCheck(r);
+    } else {
+      clearCachedDeliveryCheck();
+    }
+
     setLoading(false);
   };
 
   useEffect(() => {
-    // 1) intentar cache
     const cached = readCachedDeliveryCheck(CACHE_MAX_AGE_MS);
-    if (cached) {
+
+    // ✅ Si hay cache OK, lo usamos
+    if (cached?.ok) {
       setResult(cached);
       return;
     }
-    // 2) si no hay cache, pedir ubicación
-    runCheck();
+
+    // ✅ Si no hay cache OK, intentamos pedir automático SOLO si el permiso ya está concedido.
+    // Si está en "prompt" o "denied", mostramos un banner y esperamos a que el usuario haga click en "Reintentar".
+    (async () => {
+      try {
+        if (!("permissions" in navigator)) {
+          // Fallback: intentamos una vez (en algunos browsers puede fallar sin gesto)
+          runCheck();
+          return;
+        }
+
+        const perm = await (navigator as any).permissions.query({ name: "geolocation" });
+
+        if (perm.state === "granted") {
+          runCheck();
+        } else if (perm.state === "denied") {
+          setResult({ ok: false, reason: "denied" });
+        } else {
+          // prompt
+          setResult({ ok: false, reason: "unavailable" });
+        }
+      } catch {
+        // Fallback
+        runCheck();
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Mientras carga, no mostramos nada (o podés mostrar "Verificando zona...")
+  // Si aún no sabemos nada, no mostramos nada
   if (!result) return null;
 
   // Si ok y dentro del radio -> no mostramos banner
@@ -44,13 +76,14 @@ export default function DeliveryBanner() {
   // Mensajes
   let message = "";
   if (result.ok && result.distanceKm > MAX_KM) {
-    message = `Lo sentimos 😕. Estás a ${result.distanceKm.toFixed(2)} km y solo hacemos envíos hasta ${MAX_KM} km.`;
+    message = `Lo sentimos 😕. Estás a ${result.distanceKm.toFixed(
+      2
+    )} km y solo hacemos envíos hasta ${MAX_KM} km.`;
   } else {
-    // no ok
     message =
       result.reason === "denied"
         ? "Necesitamos tu ubicación para confirmar si estás dentro del radio de entrega (permiso denegado)."
-        : "No pudimos obtener tu ubicación para confirmar el radio de entrega.";
+        : "Necesitamos tu ubicación para confirmar si estás dentro del radio de entrega.";
   }
 
   return (
@@ -73,7 +106,7 @@ export default function DeliveryBanner() {
 
           <button
             type="button"
-            onClick={() => setResult(null)} // oculta banner en esta sesión
+            onClick={() => setResult(null)}
             className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-md"
           >
             Cerrar
