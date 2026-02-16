@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState ,useEffect } from "react"
 import { useCart } from "../context/CartProvider"
 import { makeQuery } from "../utils/api"
 import { Trash2, CheckCircle, ShoppingCart, Timer } from "lucide-react"
@@ -13,6 +13,21 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import MapSelector from "./MapSelector"
 import OSMAddressAutocomplete from "./OSMAddressAutocomplete"
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const toRad = (v: number) => (v * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 
 export default function CheckoutPage() {
@@ -39,6 +54,37 @@ export default function CheckoutPage() {
   const [includeCutlery, setIncludeCutlery] = useState(false);
   const [comments, setComments] = useState("");
 
+  const [distanceKmToStore, setDistanceKmToStore] = useState<number | null>(null)
+  const [distanceError, setDistanceError] = useState<string>("")
+
+  const STORE = { lat: -24.7892417, lng: -65.4104199 }
+  const MAX_KM = 4
+
+
+  useEffect(() => {
+  if (!customer.location) {
+    setDistanceKmToStore(null)
+    setDistanceError("")
+    return
+  }
+
+  const parts = customer.location.split(",").map((x) => Number(x.trim()))
+  if (parts.length !== 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) {
+    setDistanceKmToStore(null)
+    setDistanceError("No pudimos interpretar la ubicación seleccionada.")
+    return
+  }
+
+  const [lat, lng] = parts
+  const km = haversineKm(lat, lng, STORE.lat, STORE.lng)
+  setDistanceKmToStore(km)
+
+  if (km > MAX_KM) {
+    setDistanceError(`Tu ubicación está a ${km.toFixed(2)} km. Solo hacemos envíos hasta ${MAX_KM} km.`)
+  } else {
+    setDistanceError("")
+  }
+}, [customer.location])
 
   const showNotification = (message: string, type: "success" | "error") => {
     setNotification({ message, type })
@@ -75,6 +121,11 @@ export default function CheckoutPage() {
 
     if (cartItems.length === 0) {
       showNotification("Tu carrito está vacío", "error")
+      return
+    }
+
+    if (distanceKmToStore !== null && distanceKmToStore > MAX_KM) {
+      showNotification(`No hacemos envíos a tu ubicación (estás a ${distanceKmToStore.toFixed(2)} km).`, "error")
       return
     }
 
@@ -370,6 +421,19 @@ export default function CheckoutPage() {
                   }}
                 />
 
+                {distanceError && (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {distanceError}
+                  </div>
+                )}
+
+                {distanceKmToStore !== null && !distanceError && (
+                  <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                    Estás dentro del radio de entrega: {distanceKmToStore.toFixed(2)} km (máximo {MAX_KM} km)
+                  </div>
+                )}
+
+
                 {customer.location && (
                   <a
                     className="mt-2 text-sm text-green-700 font-medium underline block"
@@ -474,7 +538,7 @@ export default function CheckoutPage() {
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (!!distanceError)}
                 className="w-full bg-green-600 text-white py-4 rounded-lg hover:bg-green-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isSubmitting ? (
