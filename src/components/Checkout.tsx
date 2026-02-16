@@ -59,32 +59,37 @@ export default function CheckoutPage() {
 
   const STORE = { lat: -24.7892417, lng: -65.4104199 }
   const MAX_KM = 4
+  
+  const [needsLocationCheck, setNeedsLocationCheck] = useState(true);
 
 
   useEffect(() => {
   if (!customer.location) {
-    setDistanceKmToStore(null)
-    setDistanceError("")
-    return
+    setDistanceKmToStore(null);
+    setDistanceError("Seleccioná un punto en el mapa para validar si estás dentro del radio de entrega.");
+    setNeedsLocationCheck(true);
+    return;
   }
 
-  const parts = customer.location.split(",").map((x) => Number(x.trim()))
+  const parts = customer.location.split(",").map((x) => Number(x.trim()));
   if (parts.length !== 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) {
-    setDistanceKmToStore(null)
-    setDistanceError("No pudimos interpretar la ubicación seleccionada.")
-    return
+    setDistanceKmToStore(null);
+    setDistanceError("No pudimos interpretar la ubicación seleccionada.");
+    setNeedsLocationCheck(true);
+    return;
   }
 
-  const [lat, lng] = parts
-  const km = haversineKm(lat, lng, STORE.lat, STORE.lng)
-  setDistanceKmToStore(km)
+  const [lat, lng] = parts;
+  const km = haversineKm(lat, lng, STORE.lat, STORE.lng);
+  setDistanceKmToStore(km);
+  setNeedsLocationCheck(false);
 
   if (km > MAX_KM) {
-    setDistanceError(`Tu ubicación está a ${km.toFixed(2)} km. Solo hacemos envíos hasta ${MAX_KM} km.`)
+    setDistanceError(`Tu ubicación está a ${km.toFixed(2)} km. Solo hacemos envíos hasta ${MAX_KM} km.`);
   } else {
-    setDistanceError("")
+    setDistanceError("");
   }
-}, [customer.location])
+}, [customer.location]);
 
   const showNotification = (message: string, type: "success" | "error") => {
     setNotification({ message, type })
@@ -124,10 +129,18 @@ export default function CheckoutPage() {
       return
     }
 
+
+    if (needsLocationCheck) {
+      showNotification("Seleccioná un punto en el mapa para validar el radio de entrega.", "error");
+      return;
+    }
+
     if (distanceKmToStore !== null && distanceKmToStore > MAX_KM) {
       showNotification(`No hacemos envíos a tu ubicación (estás a ${distanceKmToStore.toFixed(2)} km).`, "error")
       return
     }
+
+    
 
     const orderData = {
       cart: cartItems.map((item) => ({
@@ -537,8 +550,8 @@ export default function CheckoutPage() {
               </div>
 
               <button
-                type="submit"
-                disabled={isSubmitting || (!!distanceError)}
+                type="submit" 
+                disabled={isSubmitting || needsLocationCheck || !!distanceError}
                 className="w-full bg-green-600 text-white py-4 rounded-lg hover:bg-green-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isSubmitting ? (
