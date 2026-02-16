@@ -36,6 +36,10 @@ export default function CheckoutPage() {
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
+  const [includeCutlery, setIncludeCutlery] = useState(false);
+  const [comments, setComments] = useState("");
+
+
   const showNotification = (message: string, type: "success" | "error") => {
     setNotification({ message, type })
     setTimeout(() => setNotification(null), 3000)
@@ -91,6 +95,8 @@ export default function CheckoutPage() {
       },
       paymentMethod,
       ...(paymentMethod === "Cash" && { cashAmount: Number.parseFloat(cashAmount) }),
+      includeCutlery,
+      comments
     }
 
     makeQuery(
@@ -434,6 +440,37 @@ export default function CheckoutPage() {
                   )}
                 </div>
               )}
+
+              <div className="flex items-center gap-3 mt-4 p-3 border border-gray-200 rounded-lg">
+                <input
+                  id="includeCutlery"
+                  type="checkbox"
+                  checked={includeCutlery}
+                  onChange={(e) => setIncludeCutlery(e.target.checked)}
+                  className="h-4 w-4 accent-green-600"
+                />
+                <label htmlFor="includeCutlery" className="text-sm text-gray-700 select-none">
+                  Incluir cubiertos
+                </label>
+              </div>
+              <div>
+                <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
+                  Comentarios (opcional)
+                </label>
+                <textarea
+                  id="comments"
+                  name="comments"
+                  rows={3}
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Ej: Dejar en portería, tocar timbre B, sin cebolla, etc."
+                  maxLength={500}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {comments.length}/500
+                </p>
+              </div>
 
               <button
                 type="submit"

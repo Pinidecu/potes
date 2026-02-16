@@ -13,6 +13,7 @@ import Ingredients from "./components/admin/Ingredients";
 import SaladsPage from "./components/admin/Salads";
 import { SnackbarProvider } from "notistack";
 import { CartProvider } from "./context/CartProvider";
+import DistanciaPage from "./components/distancia";
 
 // Layout principal con navegación
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -53,6 +54,14 @@ const App: React.FC = () => {
                 element={
                   <MainLayout>
                     <Checkout />
+                  </MainLayout>
+                }
+              />
+              <Route
+                path="/distancia"
+                element={
+                  <MainLayout>
+                    <DistanciaPage />
                   </MainLayout>
                 }
               />

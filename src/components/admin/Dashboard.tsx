@@ -44,7 +44,9 @@ interface Order {
   customer: Customer
   status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled"
   createdAt?: string
-  updatedAt?: string
+  updatedAt?: string  
+  includeCutlery?: boolean
+  comments?: string
 }
 
 const Dashboard: React.FC = () => {
@@ -226,6 +228,22 @@ const Dashboard: React.FC = () => {
                         <div className="text-sm font-medium text-gray-900">{order.customer?.name ?? "Sin nombre"}</div>
                         <div className="text-sm text-gray-500">{order.customer?.email ?? "Sin email"}</div>
                         <div className="text-sm text-gray-500">{order.customer?.address ?? "Sin direccion"}</div>
+                        <div
+                          className={`text-sm font-semibold mt-1 ${
+                            order.includeCutlery ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {order.includeCutlery ? "Incluye cubiertos" : "No incluye cubiertos"}
+                        </div>
+                        {order.comments?.trim() ? (
+                          <button
+                            type="button"
+                            title={order.comments}  // ✅ tooltip con el texto
+                            className="mt-2 inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Ver comentarios
+                          </button>
+                        ) : null}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">
