@@ -63,6 +63,43 @@ export default function CheckoutPage() {
   const [needsLocationCheck, setNeedsLocationCheck] = useState(true);
 
 
+
+  useEffect(() => {
+  // Si ya hay ubicación guardada, no volvemos a pedir
+  if (customer.location) return;
+
+  if (!("geolocation" in navigator)) return;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      // ✅ Esto dispara el cálculo automáticamente
+      setCustomer((prev) => ({
+        ...prev,
+        location: `${lat},${lng}`,
+      }));
+
+      // ✅ Esto centra el mapa y marca el pin
+      setCenter({ lat, lng });
+      setSelectedLocation({ lat, lng });
+    },
+    () => {
+      // Si el usuario niega permiso, que quede el mensaje actual
+      // (no cambiamos nada)
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    }
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+
+
   useEffect(() => {
   if (!customer.location) {
     setDistanceKmToStore(null);
@@ -422,7 +459,7 @@ export default function CheckoutPage() {
                 </label>                
 
                 <MapSelector
-                  center={center}
+                  center={center} 
                   onSelect={(coords) => {
                     setSelectedLocation(coords);
                     setCenter(null);   // 🔥 evita que el mapa se siga moviendo
