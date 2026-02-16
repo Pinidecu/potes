@@ -52,7 +52,10 @@ interface Order {
   createdAt?: string
   updatedAt?: string
   paymentMethod: "Cash" | "Transfer"
-  cashAmount?: number
+  cashAmount?: number 
+  includeCutlery?: boolean
+  comments?: string
+
 }
 
 const statusOptions = [
@@ -706,6 +709,22 @@ export default function OrdersPage() {
                                       Ver punto en Google Maps
                                     </a>
                                   )}
+                                  <div
+                          className={`text-sm font-semibold mt-1 ${
+                            order.includeCutlery ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {order.includeCutlery ? "Incluye cubiertos" : "No incluye cubiertos"}
+                        </div>
+                        {order.comments?.trim() ? (
+                          <button
+                            type="button"
+                            title={order.comments}  // ✅ tooltip con el texto
+                            className="mt-2 inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Ver comentarios
+                          </button>
+                        ) : null}
                                 </td>
                                 <td className="px-6 py-4">
                                   <div className="text-sm text-gray-900">
