@@ -83,9 +83,9 @@ export default function DeliveryBanner() {
   }
 
   return (
-    <div className="fixed top-6 right-6 z-[9999] w-[90%] sm:w-[40%] lg:w-[30%]">
+    <div className="fixed bottom-6 right-6 z-[9999] w-[90%] sm:w-[40%] lg:w-[30%]">
       <div
-        className={`${bgColor} text-white rounded-xl shadow-2xl p-4 animate-fade-in`}
+        className={`${bgColor} opacity-90 text-white rounded-xl shadow-2xl p-4 animate-fade-in`}
       >
         <div className="text-sm font-medium mb-3">{message}</div>
 
