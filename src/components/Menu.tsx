@@ -19,6 +19,7 @@ interface Salad {
   name: string
   description?: string
   base: (Ingredient | string)[]
+  allowedExtras: (Ingredient | string)[]
   extras: Ingredient[]
   price: number
   image: string
@@ -353,7 +354,7 @@ const openCustomization = (salad: Salad) => {
                     </div>
                   </div>
 
-                  <div>
+                  {/* <div>
                     <h3 className="text-lg font-semibold mb-4">Agregar extras</h3>
                     <div className="space-y-6">
                       {Object.entries(ingredientsByType).map(([type, typeIngredients]) => (
@@ -388,6 +389,39 @@ const openCustomization = (salad: Salad) => {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div> */}
+
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Agregar extras</h3>
+                    <div className="space-y-6">  
+                          <div className="space-y-2">
+                            {selectedSalad.allowedExtras.map((ingredient) => {
+                              const isSelected = selectedExtras.find((i) => i._id === ingredient._id)
+                              return (
+                                <div
+                                  key={ingredient._id}
+                                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer ${isSelected
+                                      ? "bg-blue-50 border-blue-200"
+                                      : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                                    }`}
+                                  onClick={() => toggleExtra(ingredient)}
+                                >
+                                  <div>
+                                    <span className={isSelected ? "text-blue-700 font-medium" : "text-gray-700"}>
+                                      {ingredient.name}
+                                    </span>
+                                    {ingredient.priceAsExtra > 0 && (
+                                      <span className="text-sm text-gray-500 ml-2">+${ingredient.priceAsExtra}</span>
+                                    )}
+                                  </div>
+                                  <div className={`p-1 rounded-full ${isSelected ? "bg-blue-500" : "bg-gray-300"}`}>
+                                    {isSelected && <Check className="h-4 w-4 text-white" />}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>  
                     </div>
                   </div>
                 </div>

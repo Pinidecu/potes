@@ -27,6 +27,7 @@ interface Salad {
     name: string
     description: string
     base: any[]
+    allowedExtras : any[]
     price: number
     image: string
     type: "Ensalada" | "Tarta"
@@ -44,6 +45,7 @@ export default function SaladsPage() {
         name: "",
         description: "",
         base: [] as string[],
+        allowedExtras: [] as string[],
         price: "",
         type: "Ensalada",
         image: null as File | null,
@@ -101,7 +103,7 @@ export default function SaladsPage() {
     }, [searchName, filterType]);
 
     const handleCreateOpen = () => {
-        setFormData({ name: "", description: "", base: [], price: "", image: "" })
+        setFormData({ name: "", description: "", base: [], allowedExtras: [], price: "", image: "" })
         setIsCreateModalOpen(true)
     }
 
@@ -112,6 +114,7 @@ export default function SaladsPage() {
             name: salad.name,
             description: salad.description,
             base: salad.base.map((item) => item._id.toString()),
+            allowedExtras: salad.allowedExtras.map((item) => item._id.toString()),
             price: salad.price.toString(),
             image: salad.image,
             type: salad.type || "Ensalada",
@@ -136,7 +139,8 @@ export default function SaladsPage() {
         formDataToSend.append("name", formData.name)
         formDataToSend.append("description", formData.description)
         formDataToSend.append("price", formData.price)
-        formDataToSend.append("base", JSON.stringify(formData.base))
+        formDataToSend.append("base", JSON.stringify(formData.base))        
+        formDataToSend.append("allowedExtras", JSON.stringify(formData.allowedExtras))
         formDataToSend.append("type", formData.type)
         if (formData.image) formDataToSend.append("image", formData.image)
 
@@ -171,6 +175,7 @@ export default function SaladsPage() {
         formDataToSend.append("name", formData.name)
         formDataToSend.append("description", formData.description)
         formDataToSend.append("base", JSON.stringify(formData.base))
+        formDataToSend.append("allowedExtras", JSON.stringify(formData.allowedExtras))
         formDataToSend.append("price", Number.parseFloat(formData.price).toString())
         formDataToSend.append("type", formData.type)
         if (imageToSend) formDataToSend.append("image", imageToSend)
@@ -214,6 +219,10 @@ export default function SaladsPage() {
     }
 
     const baseOptions: Option[] = ingredients
+        .map((ing) => ({ value: ing._id, label: ing.name ,precioDescuento:ing.precioDescuento ,priceAsExtra: ing.priceAsExtra}))
+
+
+    const allowedExtrasOptions: Option[] = ingredients
         .map((ing) => ({ value: ing._id, label: ing.name ,precioDescuento:ing.precioDescuento ,priceAsExtra: ing.priceAsExtra}))
 
     console.log("baseOptions", baseOptions, ingredients)
@@ -290,6 +299,7 @@ export default function SaladsPage() {
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Descripción</th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Precio</th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Base</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Extras</th>
                                     <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">Acciones</th>
                                 </tr>
                             </thead>
@@ -310,6 +320,9 @@ export default function SaladsPage() {
                                             <td className="px-6 py-4 text-sm text-gray-900">${salad.price.toFixed(2)}</td>
                                             <td className="px-6 py-4 text-sm text-gray-600">
                                                 {salad.base.length > 0 ? `${salad.base.length} ingrediente(s)` : <span className="italic text-gray-400">Sin base</span>}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {salad.allowedExtras.length > 0 ? `${salad.allowedExtras.length} ingrediente(s)` : <span className="italic text-gray-400">Sin extras</span>}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
@@ -420,6 +433,18 @@ export default function SaladsPage() {
                                     />
                                 </div>
 
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium text-gray-900">Ingredientes extras *</label>
+                                    <Select<Option, true>
+                                        isMulti
+                                        options={allowedExtrasOptions}
+                                        value={allowedExtrasOptions.filter((o) => formData.allowedExtras.includes(o.value))}
+                                        onChange={(selected: MultiValue<Option>) =>
+                                            setFormData((prev) => ({ ...prev, allowedExtras: selected.map((s) => s.value) }))
+                                        }
+                                    />
+                                </div>
+
                                 <div className="flex gap-3 pt-4">
                                     <button
                                         type="button"
@@ -522,6 +547,17 @@ export default function SaladsPage() {
                                         value={baseOptions.filter((o) => formData.base.includes(o.value))}
                                         onChange={(selected: MultiValue<Option>) =>
                                             setFormData((prev) => ({ ...prev, base: selected.map((s) => s.value) }))
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium text-gray-900">Ingredientes extra *</label>
+                                    <Select<Option, true>
+                                        isMulti
+                                        options={allowedExtrasOptions}
+                                        value={allowedExtrasOptions.filter((o) => formData.allowedExtras.includes(o.value))}
+                                        onChange={(selected: MultiValue<Option>) =>
+                                            setFormData((prev) => ({ ...prev, allowedExtras: selected.map((s) => s.value) }))
                                         }
                                     />
                                 </div>
