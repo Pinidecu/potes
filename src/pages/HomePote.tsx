@@ -7,7 +7,7 @@ import { FaMapMarkerAlt } from "react-icons/fa";
 
 
 import LogoPote from "../assets/images/LogoPote.png";
-import PoteWeb1 from "../assets/images/poteweb1.jpg";
+import PoteWeb1 from "../assets/images/PoteWeb1.jpg";
 import PoteWeb2 from "../assets/images/PoteWeb2.jpg";
 import PoteWeb3 from "../assets/images/PoteWeb3.jpg";
 import PoteWeb4 from "../assets/images/PoteWeb4.jpg";
