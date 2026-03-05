@@ -4,9 +4,9 @@ import { useState, useEffect, useMemo } from "react"
 import { makeQuery } from "../../utils/api"
 import Select from "react-select"
 import { useSnackbar } from "notistack"
-import { ChevronDown, Phone } from "lucide-react" 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { ChevronDown } from "lucide-react"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons"
 import { formatMoney } from "../formatNumber"
 
 interface Ingredient {
@@ -32,10 +32,17 @@ interface CartItem {
 }
 
 interface Customer {
-  name: string 
+  name: string
   address: string
   phone: string
   location?: string
+}
+
+type Turn = {
+  _id: string
+  name: string
+  startTime: string
+  available: boolean
 }
 
 interface Order {
@@ -52,10 +59,10 @@ interface Order {
   createdAt?: string
   updatedAt?: string
   paymentMethod: "Cash" | "Transfer"
-  cashAmount?: number 
+  cashAmount?: number
   includeCutlery?: boolean
   comments?: string
-
+  turn?: Turn | string | null
 }
 
 const statusOptions = [
@@ -70,6 +77,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [salads, setSalads] = useState<Salad[]>([])
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
+  const [turns, setTurns] = useState<Turn[]>([])
+  const [turnsLoading, setTurnsLoading] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -78,118 +88,125 @@ export default function OrdersPage() {
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const { enqueueSnackbar } = useSnackbar()
 
-
-  const [filter, setFilter] = useState<"today" | "week" | "all">("today");
+  const [filter, setFilter] = useState<"today" | "week" | "all">("today")
 
   // Form state
   const [formData, setFormData] = useState<{
-  cart: CartItem[]
-  totalPrice: number
-  customer: Customer
-  status: Order["status"]
-  paymentMethod: Order["paymentMethod"]
-  cashAmount?: number
-}>({
-  cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
-  totalPrice: 0,
-  customer: { name: "", address: "", phone: "", location: "" },
-  status: "Pending",
-  paymentMethod: "Cash",
-  cashAmount: 0,
-})
+    cart: CartItem[]
+    totalPrice: number
+    customer: Customer
+    status: Order["status"]
+    paymentMethod: Order["paymentMethod"]
+    cashAmount?: number
+    includeCutlery?: boolean
+    comments?: string
+    turnId?: string
+  }>({
+    cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
+    totalPrice: 0,
+    customer: { name: "", address: "", phone: "", location: "" },
+    status: "Pending",
+    paymentMethod: "Cash",
+    cashAmount: 0,
+    includeCutlery: false,
+    comments: "",
+    turnId: "",
+  })
 
   const [expandedSections, setExpandedSections] = useState<{
-  Pending: boolean
-  "In Progress": boolean
-  Shipped: boolean
-  Delivered: boolean
-  Cancelled: boolean
-}>({
-  Pending: true,
-  "In Progress": true,
-  Shipped: false,
-  Delivered: false,
-  Cancelled: false,
-})
+    Pending: boolean
+    "In Progress": boolean
+    Shipped: boolean
+    Delivered: boolean
+    Cancelled: boolean
+  }>({
+    Pending: true,
+    "In Progress": true,
+    Shipped: false,
+    Delivered: false,
+    Cancelled: false,
+  })
 
   useEffect(() => {
     fetchOrders()
     fetchSalads()
     fetchIngredients()
+    fetchTurns()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-
   useEffect(() => {
-    if (!salads.length) return; // sin ensaladas no podemos calcular
-  const computedTotal = formData.cart.reduce((acc, item) => {
-    const salad = salads.find((s) => s._id === item.salad)
-    const saladPrice = salad?.price ?? 0
+    if (!salads.length) return
 
-    const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
-      const ing = ingredients.find((i) => i._id === ingId)
-      return sum + (ing?.priceAsExtra ?? 0)
+    const computedTotal = formData.cart.reduce((acc, item) => {
+      const salad = salads.find((s) => s._id === item.salad)
+      const saladPrice = salad?.price ?? 0
+
+      const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
+        const ing = ingredients.find((i) => i._id === ingId)
+        return sum + (ing?.priceAsExtra ?? 0)
+      }, 0)
+
+      return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
     }, 0)
 
-    return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
-  }, 0)
-
-  setFormData((prev) => {
-    const newTotal = Number(computedTotal.toFixed(2))
-    return {
-      ...prev,
-      totalPrice: newTotal,
-      cashAmount:
-        prev.paymentMethod === "Cash"
-          ? (prev.cashAmount == null || prev.cashAmount < newTotal ? newTotal : prev.cashAmount)
-          : prev.cashAmount,
-    }
-  })
-  // ⚠️ importantísimo: no pongas formData entero en deps
-}, [formData.cart, salads, ingredients])
-
+    setFormData((prev) => {
+      const newTotal = Number(computedTotal.toFixed(2))
+      return {
+        ...prev,
+        totalPrice: newTotal,
+        cashAmount:
+          prev.paymentMethod === "Cash"
+            ? prev.cashAmount == null || prev.cashAmount < newTotal
+              ? newTotal
+              : prev.cashAmount
+            : prev.cashAmount,
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.cart, salads, ingredients])
 
   const fetchOrders = async () => {
-  await makeQuery(
-    null,
-    "getOrders",
-    {},
-    enqueueSnackbar,
-    (data: any) => {
-      const list =
-        Array.isArray(data) ? data :
-        Array.isArray(data?.data) ? data.data :
-        Array.isArray(data?.orders) ? data.orders :
-        []
-
-      setOrders(list)
-    },
-    setLoading,
-  )
-}
-
-  const fetchSalads = async () => {
     await makeQuery(
       null,
-      "getSalads",
+      "getOrders",
       {},
       enqueueSnackbar,
-      (data) => {
-        setSalads(data)
+      (data: any) => {
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.orders)
+          ? data.orders
+          : []
+        setOrders(list)
       },
-      undefined,
+      setLoading,
     )
   }
 
+  const fetchSalads = async () => {
+    await makeQuery(null, "getSalads", {}, enqueueSnackbar, (data) => setSalads(data), undefined)
+  }
+
   const fetchIngredients = async () => {
+    await makeQuery(null, "getIngredients", {}, enqueueSnackbar, (data) => setIngredients(data), undefined)
+  }
+
+  const fetchTurns = async () => {
     await makeQuery(
       null,
-      "getIngredients",
-      {},
+      "getTurns",
+      { available: "true" },
       enqueueSnackbar,
       (data) => {
-        setIngredients(data)
+        const list: Turn[] = Array.isArray(data) ? data : []
+        const onlyAvailable = list.filter((t) => t.available)
+        const sorted = [...onlyAvailable].sort((a, b) => a.startTime.localeCompare(b.startTime))
+        setTurns(sorted)
       },
-      undefined,
+      setTurnsLoading,
     )
   }
 
@@ -199,170 +216,187 @@ export default function OrdersPage() {
   }
 
   const resetForm = () => {
-  setFormData({
-    cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
-    totalPrice: 0,
-    customer: { name: "", address: "", phone: "", location: "" },
-    status: "Pending",
-    paymentMethod: "Cash",
-    cashAmount: 0,
-  })
-}
+    setFormData({
+      cart: [{ salad: "", quantity: 1, extra: [], removedIngredients: "" }],
+      totalPrice: 0,
+      customer: { name: "", address: "", phone: "", location: "" },
+      status: "Pending",
+      paymentMethod: "Cash",
+      cashAmount: 0,
+      includeCutlery: false,
+      comments: "",
+      turnId: "",
+    })
+  }
 
   const handleCreate = async () => {
-  // Validaciones básicas (igual que cliente)
-  if (!formData.customer.name || !formData.customer.address || !formData.customer.phone) {
-    showNotification("Por favor completá todos los campos requeridos", "error")
-    return
-  }
+    if (!formData.customer.name || !formData.customer.address || !formData.customer.phone) {
+      showNotification("Por favor completá todos los campos requeridos", "error")
+      return
+    }
 
-  if (!formData.paymentMethod) {
-    showNotification("Por favor seleccioná un medio de pago", "error")
-    return
-  }
+    if (!formData.paymentMethod) {
+      showNotification("Por favor seleccioná un medio de pago", "error")
+      return
+    }
 
-  if (!formData.cart.length || !formData.cart[0].salad) {
-    showNotification("Por favor agrega al menos una ensalada al carrito", "error")
-    return
-  }
+    if (!formData.cart.length || !formData.cart[0].salad) {
+      showNotification("Por favor agrega al menos una ensalada al carrito", "error")
+      return
+    }
 
-  // Total calculado como en cliente
-  const computedTotal = formData.cart.reduce((acc, item) => {
-    const salad = salads.find((s) => s._id === item.salad)
-    const saladPrice = salad?.price ?? 0
+    // ✅ Turno obligatorio en creación admin también
+    if (!formData.turnId) {
+      showNotification("Por favor seleccioná un turno", "error")
+      return
+    }
 
-    const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
-      const ing = ingredients.find((i) => i._id === ingId)
-      return sum + (ing?.priceAsExtra ?? 0)
+    const computedTotal = formData.cart.reduce((acc, item) => {
+      const salad = salads.find((s) => s._id === item.salad)
+      const saladPrice = salad?.price ?? 0
+
+      const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
+        const ing = ingredients.find((i) => i._id === ingId)
+        return sum + (ing?.priceAsExtra ?? 0)
+      }, 0)
+
+      return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
     }, 0)
 
-    return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
-  }, 0)
-
-  if (formData.paymentMethod === "Cash") {
-    const cash = formData.cashAmount ?? 0
-    if (!cash) {
-      showNotification("Por favor ingresá con cuánto vas a pagar", "error")
-      return
+    if (formData.paymentMethod === "Cash") {
+      const cash = formData.cashAmount ?? 0
+      if (!cash) {
+        showNotification("Por favor ingresá con cuánto vas a pagar", "error")
+        return
+      }
+      if (cash < computedTotal) {
+        showNotification("El monto en efectivo debe ser mayor o igual al total", "error")
+        return
+      }
     }
-    if (cash < computedTotal) {
-      showNotification("El monto en efectivo debe ser mayor o igual al total", "error")
-      return
+
+    const orderData = {
+      cart: formData.cart.map((item) => ({
+        salad: item.salad,
+        quantity: item.quantity,
+        removedIngredients: item.removedIngredients,
+        extra: item.extra,
+      })),
+      totalPrice: Number(computedTotal.toFixed(2)),
+      customer: {
+        name: formData.customer.name,
+        address: formData.customer.address,
+        phone: formData.customer.phone,
+        location: formData.customer.location,
+      },
+      status: formData.status,
+      paymentMethod: formData.paymentMethod,
+      ...(formData.paymentMethod === "Cash" && { cashAmount: Number(formData.cashAmount) }),
+      includeCutlery: !!formData.includeCutlery,
+      comments: formData.comments ?? "",
+      turnId: formData.turnId,
     }
-  }
 
-  // Armado del body EXACTO como el cliente
-  const orderData = {
-    cart: formData.cart.map((item) => ({
-      salad: item.salad,
-      quantity: item.quantity,
-      removedIngredients: item.removedIngredients,
-      extra: item.extra,
-    })),
-    totalPrice: Number(computedTotal.toFixed(2)),
-    customer: {
-      name: formData.customer.name,
-      address: formData.customer.address,
-      phone: formData.customer.phone,
-      location: formData.customer.location,
-    },
-    status: formData.status,
-    paymentMethod: formData.paymentMethod,
-    ...(formData.paymentMethod === "Cash" && { cashAmount: Number(formData.cashAmount) }),
+    await makeQuery(
+      null,
+      "createOrder",
+      orderData,
+      enqueueSnackbar,
+      () => {
+        showNotification("Orden creada exitosamente", "success")
+        setShowCreateModal(false)
+        resetForm()
+        fetchOrders()
+      },
+      setLoading,
+    )
   }
-
-  await makeQuery(
-    null,
-    "createOrder",
-    orderData,
-    enqueueSnackbar,
-    () => {
-      showNotification("Orden creada exitosamente", "success")
-      setShowCreateModal(false)
-      resetForm()
-      fetchOrders()
-    },
-    setLoading,
-  )
-}
 
   const handleEdit = async () => {
-  if (!selectedOrder) return
+    if (!selectedOrder) return
 
-  if (!formData.customer.name || !formData.customer.address || !formData.customer.phone) {
-    showNotification("Por favor completá todos los campos requeridos", "error")
-    return
-  }
+    if (!formData.customer.name || !formData.customer.address || !formData.customer.phone) {
+      showNotification("Por favor completá todos los campos requeridos", "error")
+      return
+    }
 
-  if (!formData.paymentMethod) {
-    showNotification("Por favor seleccioná un medio de pago", "error")
-    return
-  }
+    if (!formData.paymentMethod) {
+      showNotification("Por favor seleccioná un medio de pago", "error")
+      return
+    }
 
-  if (!formData.cart.length || !formData.cart[0].salad) {
-    showNotification("Por favor agrega al menos una ensalada al carrito", "error")
-    return
-  }
+    if (!formData.cart.length || !formData.cart[0].salad) {
+      showNotification("Por favor agrega al menos una ensalada al carrito", "error")
+      return
+    }
 
-  // recalcular total (igual al cliente)
-  const computedTotal = formData.cart.reduce((acc, item) => {
-    const salad = salads.find((s) => s._id === item.salad)
-    const saladPrice = salad?.price ?? 0
+    // ✅ turno obligatorio también al editar
+    if (!formData.turnId) {
+      showNotification("Por favor seleccioná un turno", "error")
+      return
+    }
 
-    const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
-      const ing = ingredients.find((i) => i._id === ingId)
-      return sum + (ing?.priceAsExtra ?? 0)
+    const computedTotal = formData.cart.reduce((acc, item) => {
+      const salad = salads.find((s) => s._id === item.salad)
+      const saladPrice = salad?.price ?? 0
+
+      const extrasPrice = (item.extra || []).reduce((sum, ingId) => {
+        const ing = ingredients.find((i) => i._id === ingId)
+        return sum + (ing?.priceAsExtra ?? 0)
+      }, 0)
+
+      return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
     }, 0)
 
-    return acc + (saladPrice + extrasPrice) * (item.quantity || 1)
-  }, 0)
-
-  if (formData.paymentMethod === "Cash") {
-    const cash = formData.cashAmount ?? 0
-    if (!cash) {
-      showNotification("Por favor ingresá con cuánto vas a pagar", "error")
-      return
+    if (formData.paymentMethod === "Cash") {
+      const cash = formData.cashAmount ?? 0
+      if (!cash) {
+        showNotification("Por favor ingresá con cuánto vas a pagar", "error")
+        return
+      }
+      if (cash < computedTotal) {
+        showNotification("El monto en efectivo debe ser mayor o igual al total", "error")
+        return
+      }
     }
-    if (cash < computedTotal) {
-      showNotification("El monto en efectivo debe ser mayor o igual al total", "error")
-      return
+
+    const orderData = {
+      cart: formData.cart.map((item) => ({
+        salad: item.salad,
+        quantity: item.quantity,
+        removedIngredients: item.removedIngredients,
+        extra: item.extra,
+      })),
+      totalPrice: Number(computedTotal.toFixed(2)),
+      customer: {
+        name: formData.customer.name,
+        address: formData.customer.address,
+        phone: formData.customer.phone,
+        location: formData.customer.location,
+      },
+      status: formData.status,
+      paymentMethod: formData.paymentMethod,
+      ...(formData.paymentMethod === "Cash" && { cashAmount: Number(formData.cashAmount) }),
+      includeCutlery: !!formData.includeCutlery,
+      comments: formData.comments ?? "",
+      turnId: formData.turnId,
     }
-  }
 
-  const orderData = {
-    cart: formData.cart.map((item) => ({
-      salad: item.salad,
-      quantity: item.quantity,
-      removedIngredients: item.removedIngredients,
-      extra: item.extra,
-    })),
-    totalPrice: Number(computedTotal.toFixed(2)),
-    customer: {
-      name: formData.customer.name,
-      address: formData.customer.address,
-      phone: formData.customer.phone,
-      location: formData.customer.location,
-    },
-    status: formData.status,
-    paymentMethod: formData.paymentMethod,
-    ...(formData.paymentMethod === "Cash" && { cashAmount: Number(formData.cashAmount) }),
+    await makeQuery(
+      null,
+      "updateOrder",
+      { id: selectedOrder._id, ...orderData },
+      enqueueSnackbar,
+      () => {
+        showNotification("Orden actualizada exitosamente", "success")
+        setShowEditModal(false)
+        setSelectedOrder(null)
+        resetForm()
+        fetchOrders()
+      },
+      setLoading,
+    )
   }
-
-  await makeQuery(
-    null,
-    "updateOrder",
-    { id: selectedOrder._id, ...orderData },
-    enqueueSnackbar,
-    () => {
-      showNotification("Orden actualizada exitosamente", "success")
-      setShowEditModal(false)
-      setSelectedOrder(null)
-      resetForm()
-      fetchOrders()
-    },
-    setLoading,
-  )
-}
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     await makeQuery(
@@ -397,22 +431,34 @@ export default function OrdersPage() {
   }
 
   const openEditModal = (order: Order) => {
-  setSelectedOrder(order)
-  setFormData({
-    cart: order.cart.map((item) => ({
-      salad: typeof item.salad === "string" ? item.salad : item.salad._id,
-      removedIngredients: item.removedIngredients,
-      quantity: item.quantity,
-      extra: item.extra.map((e) => (typeof e === "string" ? e : e._id)),
-    })),
-    totalPrice: order.totalPrice,
-    customer: order.customer,
-    status: order.status,
-    paymentMethod: order.paymentMethod ?? "Cash",
-    cashAmount: order.cashAmount ?? 0,
-  })
-  setShowEditModal(true)
-}
+    setSelectedOrder(order)
+
+    const turnId =
+      typeof order.turn === "string"
+        ? order.turn
+        : order.turn && typeof order.turn === "object"
+        ? order.turn._id
+        : ""
+
+    setFormData({
+      cart: order.cart.map((item) => ({
+        salad: typeof item.salad === "string" ? item.salad : item.salad._id,
+        removedIngredients: item.removedIngredients,
+        quantity: item.quantity,
+        extra: item.extra.map((e) => (typeof e === "string" ? e : e._id)),
+      })),
+      totalPrice: order.totalPrice,
+      customer: order.customer,
+      status: order.status,
+      paymentMethod: order.paymentMethod ?? "Cash",
+      cashAmount: order.cashAmount ?? 0,
+      includeCutlery: !!order.includeCutlery,
+      comments: order.comments ?? "",
+      turnId,
+    })
+
+    setShowEditModal(true)
+  }
 
   const openDeleteModal = (order: Order) => {
     setSelectedOrder(order)
@@ -457,20 +503,16 @@ export default function OrdersPage() {
     })
   }
 
-  const toggleSection = (
-  status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled"
-) => {
-  setExpandedSections((prev) => ({
-    ...prev,
-    [status]: !prev[status],
-  }))
-}
+  const toggleSection = (status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled") => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [status]: !prev[status],
+    }))
+  }
 
-  const getOrdersByStatus = (
-  status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled"
-) => {
-  return filteredOrders.filter((order) => order.status === status)
-}
+  const getOrdersByStatus = (status: "Pending" | "In Progress" | "Shipped" | "Delivered" | "Cancelled") => {
+    return filteredOrders.filter((order) => order.status === status)
+  }
 
   const statusSections = [
     { key: "Pending" as const, label: "Pendiente", color: "bg-yellow-50 border-yellow-200" },
@@ -480,59 +522,56 @@ export default function OrdersPage() {
     { key: "Cancelled" as const, label: "Cancelado", color: "bg-red-50 border-red-200" },
   ]
 
-
-
   const getFilteredOrders = () => {
-    const now = new Date();
+    const now = new Date()
 
     return orders.filter((order) => {
-      const orderDate = new Date(order.createdAt);
+      const orderDate = new Date(order.createdAt as any)
 
       if (filter === "today") {
         return (
           orderDate.getDate() === now.getDate() &&
           orderDate.getMonth() === now.getMonth() &&
           orderDate.getFullYear() === now.getFullYear()
-        );
+        )
       }
 
       if (filter === "week") {
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay()); // domingo
+        const startOfWeek = new Date(now)
+        startOfWeek.setDate(now.getDate() - now.getDay())
 
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7);
+        const endOfWeek = new Date(startOfWeek)
+        endOfWeek.setDate(startOfWeek.getDate() + 7)
 
-        return orderDate >= startOfWeek && orderDate < endOfWeek;
+        return orderDate >= startOfWeek && orderDate < endOfWeek
       }
 
-      return true; // "all"
-    });
-  };
+      return true
+    })
+  }
 
-  const filteredOrders = getFilteredOrders();
+  const filteredOrders = getFilteredOrders()
 
-
-   // MÉTRICAS calculadas en base a filteredOrders
   const metrics = useMemo(() => {
-    const cantidad = filteredOrders.length;
-     const totalPedidos = filteredOrders
+    const cantidad = filteredOrders.length
+    const totalPedidos = filteredOrders
       .filter((o) => o.status !== "Cancelled")
-      .reduce((acc, o) => acc + o.totalPrice, 0);
+      .reduce((acc, o) => acc + o.totalPrice, 0)
     const totalEfectivo = filteredOrders
       .filter((o) => o.paymentMethod === "Cash" && o.status !== "Cancelled")
-      .reduce((acc, o) => acc + o.totalPrice, 0);
+      .reduce((acc, o) => acc + o.totalPrice, 0)
     const totalTransferencia = filteredOrders
       .filter((o) => o.paymentMethod === "Transfer" && o.status !== "Cancelled")
-      .reduce((acc, o) => acc + o.totalPrice, 0);
+      .reduce((acc, o) => acc + o.totalPrice, 0)
 
-    return {
-      cantidad,
-      totalPedidos,
-      totalEfectivo,
-      totalTransferencia,
-    };
-  }, [filteredOrders]);
+    return { cantidad, totalPedidos, totalEfectivo, totalTransferencia }
+  }, [filteredOrders])
+
+  const renderTurnText = (order: Order) => {
+    if (!order.turn) return "Sin turno"
+    if (typeof order.turn === "string") return "Turno asignado"
+    return `${order.turn.name} - ${order.turn.startTime}`
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -554,61 +593,48 @@ export default function OrdersPage() {
         <div className="flex gap-4 mb-6">
           <button
             onClick={() => setFilter("today")}
-            className={`px-4 py-2 rounded ${
-              filter === "today"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-800"
-            }`}
+            className={`px-4 py-2 rounded ${filter === "today" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"}`}
           >
             Hoy
           </button>
 
           <button
             onClick={() => setFilter("week")}
-            className={`px-4 py-2 rounded ${
-              filter === "week"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-800"
-            }`}
+            className={`px-4 py-2 rounded ${filter === "week" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"}`}
           >
             Semana actual
           </button>
 
           <button
             onClick={() => setFilter("all")}
-            className={`px-4 py-2 rounded ${
-              filter === "all"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-800"
-            }`}
+            className={`px-4 py-2 rounded ${filter === "all" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"}`}
           >
             Todo
           </button>
         </div>
 
         {/* MÉTRICAS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 bg-white shadow rounded">
-          <h3 className="text-sm text-gray-600">Cantidad de pedidos</h3>
-          <p className="text-xl font-bold">{metrics.cantidad}</p>
-        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="p-4 bg-white shadow rounded">
+            <h3 className="text-sm text-gray-600">Cantidad de pedidos</h3>
+            <p className="text-xl font-bold">{metrics.cantidad}</p>
+          </div>
 
-        <div className="p-4 bg-white shadow rounded">
-          <h3 className="text-sm text-gray-600">Total de pedidos</h3>
-          <p className="text-xl font-bold">${formatMoney(metrics.totalPedidos)}</p>
-        </div>
+          <div className="p-4 bg-white shadow rounded">
+            <h3 className="text-sm text-gray-600">Total de pedidos</h3>
+            <p className="text-xl font-bold">${formatMoney(metrics.totalPedidos)}</p>
+          </div>
 
-        <div className="p-4 bg-white shadow rounded">
-          <h3 className="text-sm text-gray-600">Total en efectivo</h3>
-          <p className="text-xl font-bold">${formatMoney(metrics.totalEfectivo)}</p>
-        </div>
+          <div className="p-4 bg-white shadow rounded">
+            <h3 className="text-sm text-gray-600">Total en efectivo</h3>
+            <p className="text-xl font-bold">${formatMoney(metrics.totalEfectivo)}</p>
+          </div>
 
-        <div className="p-4 bg-white shadow rounded">
-          <h3 className="text-sm text-gray-600">Total en transferencia</h3>
-          <p className="text-xl font-bold">${formatMoney(metrics.totalTransferencia)}</p>
+          <div className="p-4 bg-white shadow rounded">
+            <h3 className="text-sm text-gray-600">Total en transferencia</h3>
+            <p className="text-xl font-bold">${formatMoney(metrics.totalTransferencia)}</p>
+          </div>
         </div>
-      </div>
-
 
         {/* Notification */}
         {notification && (
@@ -629,13 +655,10 @@ export default function OrdersPage() {
           <div className="space-y-4">
             {statusSections.map((section) => {
               const statusOrders = getOrdersByStatus(section.key)
-              
-  console.log("statusOrders", statusOrders)
               const isExpanded = expandedSections[section.key]
 
               return (
                 <div key={section.key} className={`bg-white rounded-lg shadow border-2 ${section.color}`}>
-                  {/* Section Header - Clickable to toggle */}
                   <button
                     onClick={() => toggleSection(section.key)}
                     className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
@@ -646,12 +669,9 @@ export default function OrdersPage() {
                         {statusOrders.length}
                       </span>
                     </div>
-                    <ChevronDown
-                      className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                    />
+                    <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                   </button>
 
-                  {/* Orders Table - Collapsible */}
                   {isExpanded && statusOrders.length > 0 && (
                     <div className="border-t border-gray-200">
                       <div className="overflow-x-auto">
@@ -677,6 +697,9 @@ export default function OrdersPage() {
                                 Pago
                               </th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Turno
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Acciones
                               </th>
                             </tr>
@@ -686,19 +709,19 @@ export default function OrdersPage() {
                               <tr key={order._id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4">
                                   <div className="text-sm font-medium text-gray-900">{order.customer?.name ?? "Sin nombre"}</div>
-                                  {/* <div className="text-sm text-gray-500">{order.customer.email}</div> */}
-                                  <div className="text-sm text-gray-500">  {order.customer?.phone ?? "Sin telefono"}</div>                                   
-                                  <div className="text-sm text-gray-500"><a
-                                      href={'https://wa.me/' + order.customer.phone}
+                                  <div className="text-sm text-gray-500">{order.customer?.phone ?? "Sin telefono"}</div>
+                                  <div className="text-sm text-gray-500">
+                                    <a
+                                      href={"https://wa.me/" + order.customer.phone}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-sm text-blue-600 hover:underline"
                                     >
-                                       <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "24px" }} />
+                                      <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "24px" }} />
                                     </a>
                                   </div>
-                                  <div className="text-sm text-gray-500">  {order.customer?.address ?? "Sin dirección"}</div>
-                                   
+                                  <div className="text-sm text-gray-500">{order.customer?.address ?? "Sin dirección"}</div>
+
                                   {order.customer.location && (
                                     <a
                                       className="mt-2 text-sm text-green-700 font-medium underline block"
@@ -709,47 +732,51 @@ export default function OrdersPage() {
                                       Ver punto en Google Maps
                                     </a>
                                   )}
-                                  <div
-                          className={`text-sm font-semibold mt-1 ${
-                            order.includeCutlery ? "text-green-600" : "text-red-600"
-                          }`}
-                        >
-                          {order.includeCutlery ? "Incluye cubiertos" : "No incluye cubiertos"}
-                        </div>
-                        {order.comments?.trim() ? (
-  <div className="relative inline-block mt-2 group">
-    <button
-      type="button"
-      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-    >
-      Ver comentarios
-    </button>
 
-    {/* Tooltip */}
-    <div className="
-      pointer-events-none
-      absolute
-      bottom-full
-      left-0
-      mb-2
-      z-50
-      hidden
-      w-72
-      rounded-md
-      bg-gray-900
-      px-3
-      py-2
-      text-xs
-      text-white
-      shadow-lg
-      group-hover:block
-    ">
-      {order.comments}
-      <div className="absolute -bottom-1 left-4 h-2 w-2 rotate-45 bg-gray-900" />
-    </div>
-  </div>
-) : null}
+                                  <div
+                                    className={`text-sm font-semibold mt-1 ${
+                                      order.includeCutlery ? "text-green-600" : "text-red-600"
+                                    }`}
+                                  >
+                                    {order.includeCutlery ? "Incluye cubiertos" : "No incluye cubiertos"}
+                                  </div>
+
+                                  {order.comments?.trim() ? (
+                                    <div className="relative inline-block mt-2 group">
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                      >
+                                        Ver comentarios
+                                      </button>
+
+                                      <div
+                                        className="
+                                          pointer-events-none
+                                          absolute
+                                          bottom-full
+                                          left-0
+                                          mb-2
+                                          z-50
+                                          hidden
+                                          w-72
+                                          rounded-md
+                                          bg-gray-900
+                                          px-3
+                                          py-2
+                                          text-xs
+                                          text-white
+                                          shadow-lg
+                                          group-hover:block
+                                        "
+                                      >
+                                        {order.comments}
+                                        <div className="absolute -bottom-1 left-4 h-2 w-2 rotate-45 bg-gray-900" />
+                                      </div>
+                                    </div>
+                                  ) : null}
                                 </td>
+
                                 <td className="px-6 py-4">
                                   <div className="text-sm text-gray-900">
                                     {order.cart.map((item, idx) => (
@@ -757,12 +784,10 @@ export default function OrdersPage() {
                                         <span className="font-medium">{getSaladName(item.salad)}</span>
                                         <span className="text-gray-500"> x{item.quantity}</span>
                                         {item.extra.length > 0 && (
-                                          <div className="text-xs text-gray-500 ml-2">
-                                            Extras: {getIngredientNames(item.extra)}
-                                          </div>
+                                          <div className="text-xs text-gray-500 ml-2">Extras: {getIngredientNames(item.extra)}</div>
                                         )}
                                         {item.removedIngredients && (
-                                          <div className="text-sm text-gray-600 mb-2"> 
+                                          <div className="text-sm text-gray-600 mb-2">
                                             <div className="flex flex-wrap gap-1 mt-1">
                                               <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs ">
                                                 {item.removedIngredients}
@@ -771,13 +796,12 @@ export default function OrdersPage() {
                                           </div>
                                         )}
                                       </div>
-                                      
-                                    ))}                                    
+                                    ))}
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                  ${order.totalPrice.toFixed(2)}
-                                </td>
+
+                                <td className="px-6 py-4 text-sm font-medium text-gray-900">${order.totalPrice.toFixed(2)}</td>
+
                                 <td className="px-6 py-4">
                                   <Select
                                     value={statusOptions.find((opt) => opt.value === order.status)}
@@ -796,28 +820,29 @@ export default function OrdersPage() {
                                     }}
                                   />
                                 </td>
+
                                 <td className="px-6 py-4 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
+
                                 <td className="px-6 py-4 text-sm text-gray-500">
                                   {order.paymentMethod === "Cash" ? (
                                     <div>Efectivo (${order.cashAmount?.toFixed(2)})</div>
+                                  ) : order.paymentMethod === "Transfer" ? (
+                                    <div>Transferencia</div>
                                   ) : (
-                                    order.paymentMethod === "Transfer" ? <div>Transferencia</div> :<div>Vacio</div>
-                                  )} 
+                                    <div>Vacio</div>
+                                  )}
                                 </td>
+
+                                <td className="px-6 py-4 text-sm text-gray-700 font-medium">{renderTurnText(order)}</td>
+
                                 <td className="px-6 py-4 text-sm font-medium  text-center ">
                                   <div className="flex flex-col gap-1 ">
-                                    <button
-                                    onClick={() => openEditModal(order)}
-                                    className="text-blue-600 hover:text-blue-900"
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                    onClick={() => openDeleteModal(order)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    Eliminar
-                                  </button>  
+                                    <button onClick={() => openEditModal(order)} className="text-blue-600 hover:text-blue-900">
+                                      Editar
+                                    </button>
+                                    <button onClick={() => openDeleteModal(order)} className="text-red-600 hover:text-red-900">
+                                      Eliminar
+                                    </button>
                                   </div>
                                 </td>
                               </tr>
@@ -828,7 +853,6 @@ export default function OrdersPage() {
                     </div>
                   )}
 
-                  {/* Empty state when section is expanded but has no orders */}
                   {isExpanded && statusOrders.length === 0 && (
                     <div className="px-6 py-8 text-center text-gray-500 border-t border-gray-200">
                       No hay órdenes en este estado
@@ -847,6 +871,7 @@ export default function OrdersPage() {
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-900">Nueva Orden</h2>
               </div>
+
               <div className="p-6 space-y-6">
                 {/* Customer Info */}
                 <div>
@@ -857,31 +882,11 @@ export default function OrdersPage() {
                       <input
                         type="text"
                         value={formData.customer.name}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, name: e.target.value },
-                          })
-                        }
+                        onChange={(e) => setFormData({ ...formData, customer: { ...formData.customer, name: e.target.value } })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Nombre del cliente"
                       />
                     </div>
-                    {/* <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                      <input
-                        type="email"
-                        value={formData.customer.email}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, email: e.target.value },
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="email@ejemplo.com"
-                      />
-                    </div> */}
 
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
@@ -889,10 +894,7 @@ export default function OrdersPage() {
                         type="text"
                         value={formData.customer.address}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, address: e.target.value },
-                          })
+                          setFormData({ ...formData, customer: { ...formData.customer, address: e.target.value } })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Dirección de entrega"
@@ -905,10 +907,7 @@ export default function OrdersPage() {
                         type="text"
                         value={formData.customer.location || ""}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, location: e.target.value },
-                          })
+                          setFormData({ ...formData, customer: { ...formData.customer, location: e.target.value } })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Ubicación (Link de Google Maps)"
@@ -920,17 +919,46 @@ export default function OrdersPage() {
                       <input
                         type="text"
                         value={formData.customer.phone}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, phone: e.target.value },
-                          })
-                        }
+                        onChange={(e) => setFormData({ ...formData, customer: { ...formData.customer, phone: e.target.value } })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Número de teléfono"
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Turnos */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Turno *</h3>
+
+                  {turnsLoading ? (
+                    <div className="text-sm text-gray-500">Cargando turnos...</div>
+                  ) : turns.length === 0 ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      No hay turnos disponibles en este momento.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {turns.map((t) => {
+                        const active = formData.turnId === t._id
+                        return (
+                          <button
+                            key={t._id}
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, turnId: t._id }))}
+                            className={`p-3 rounded-lg border-2 transition-all font-medium text-left ${
+                              active ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 hover:border-gray-400"
+                            }`}
+                          >
+                            <div className="font-semibold">{t.name}</div>
+                            <div className="text-sm opacity-80">{t.startTime}</div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {!formData.turnId && <p className="mt-2 text-xs text-gray-500">Seleccioná un turno para crear la orden.</p>}
                 </div>
 
                 {/* Cart Items */}
@@ -944,20 +972,19 @@ export default function OrdersPage() {
                       + Agregar Item
                     </button>
                   </div>
+
                   <div className="space-y-4">
                     {formData.cart.map((item, index) => (
                       <div key={index} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex justify-between items-start mb-4">
                           <h4 className="font-medium text-gray-900">Item {index + 1}</h4>
                           {formData.cart.length > 1 && (
-                            <button
-                              onClick={() => removeCartItem(index)}
-                              className="text-red-600 hover:text-red-900 text-sm"
-                            >
+                            <button onClick={() => removeCartItem(index)} className="text-red-600 hover:text-red-900 text-sm">
                               Eliminar
                             </button>
                           )}
                         </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Ensalada *</label>
@@ -985,6 +1012,7 @@ export default function OrdersPage() {
                               }}
                             />
                           </div>
+
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad *</label>
                             <input
@@ -997,9 +1025,14 @@ export default function OrdersPage() {
                           </div>
 
                           <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {item.removedIngredients}
-                            </label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Sin (ingredientes)</label>
+                            <input
+                              type="text"
+                              value={item.removedIngredients}
+                              onChange={(e) => updateCartItem(index, "removedIngredients", e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              placeholder="Ej: sin cebolla"
+                            />
                           </div>
 
                           <div className="md:col-span-2">
@@ -1012,9 +1045,7 @@ export default function OrdersPage() {
                                   value: ing._id,
                                   label: `${ing.name} (+$${ing.priceAsExtra})`,
                                 }))}
-                              onChange={(selected) =>
-                                updateCartItem(index, "extra", selected ? selected.map((s) => s.value) : [])
-                              }
+                              onChange={(selected) => updateCartItem(index, "extra", selected ? selected.map((s) => s.value) : [])}
                               options={ingredients.map((ing) => ({
                                 value: ing._id,
                                 label: `${ing.name} (+$${ing.priceAsExtra})`,
@@ -1035,7 +1066,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Total Price and Status */}
+                {/* Total, Estado, Pago */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Precio Total *</label>
@@ -1044,17 +1075,17 @@ export default function OrdersPage() {
                       min="0"
                       step="0.01"
                       readOnly
-                      value={formData.totalPrice} 
+                      value={formData.totalPrice}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="0.00"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Estado *</label>
                     <Select
                       value={{ value: formData.status, label: formData.status }}
-                      onChange={(option) => setFormData({ ...formData, status: option?.value || "Pending" })}
+                      onChange={(option) => setFormData({ ...formData, status: (option?.value as any) || "Pending" })}
                       options={[
                         { value: "Pending", label: "Pending" },
                         { value: "In Progress", label: "In Progress" },
@@ -1071,55 +1102,57 @@ export default function OrdersPage() {
                       }}
                     />
                   </div>
-                  <div className="md:col-span-2">
-  <label className="block text-sm font-medium text-gray-700 mb-3">Medio de pago *</label>
-  <div className="grid grid-cols-2 gap-3">
-    <button
-      type="button"
-      onClick={() => setFormData({ ...formData, paymentMethod: "Cash", cashAmount: formData.cashAmount ?? formData.totalPrice })}
-      className={`p-3 rounded-lg border-2 transition-all font-medium ${
-        formData.paymentMethod === "Cash"
-          ? "border-blue-600 bg-blue-50 text-blue-700"
-          : "border-gray-300 hover:border-gray-400"
-      }`}
-    >
-      Efectivo
-    </button>
-    <button
-      type="button"
-      onClick={() => setFormData({ ...formData, paymentMethod: "Transfer", cashAmount: undefined })}
-      className={`p-3 rounded-lg border-2 transition-all font-medium ${
-        formData.paymentMethod === "Transfer"
-          ? "border-blue-600 bg-blue-50 text-blue-700"
-          : "border-gray-300 hover:border-gray-400"
-      }`}
-    >
-      Transferencia
-    </button>
-  </div>
-</div>
 
-{formData.paymentMethod === "Cash" && (
-  <div className="md:col-span-2">
-    <label className="block text-sm font-medium text-gray-700 mb-2">¿Con cuánto paga? *</label>
-    <input
-      type="number"
-      min={formData.totalPrice}
-      step="0.01"
-      value={formData.cashAmount ?? ""}
-      onChange={(e) => setFormData({ ...formData, cashAmount: Number(e.target.value) || 0 })}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-      placeholder={`Mínimo $${formData.totalPrice.toFixed(2)}`}
-    />
-    {!!formData.cashAmount && formData.cashAmount > formData.totalPrice && (
-      <p className="mt-2 text-sm text-green-600">
-        Vuelto: ${(formData.cashAmount - formData.totalPrice).toFixed(2)}
-      </p>
-    )}
-  </div>
-)}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Medio de pago *</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData({ ...formData, paymentMethod: "Cash", cashAmount: formData.cashAmount ?? formData.totalPrice })
+                        }
+                        className={`p-3 rounded-lg border-2 transition-all font-medium ${
+                          formData.paymentMethod === "Cash"
+                            ? "border-blue-600 bg-blue-50 text-blue-700"
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        Efectivo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, paymentMethod: "Transfer", cashAmount: undefined })}
+                        className={`p-3 rounded-lg border-2 transition-all font-medium ${
+                          formData.paymentMethod === "Transfer"
+                            ? "border-blue-600 bg-blue-50 text-blue-700"
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        Transferencia
+                      </button>
+                    </div>
+                  </div>
+
+                  {formData.paymentMethod === "Cash" && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">¿Con cuánto paga? *</label>
+                      <input
+                        type="number"
+                        min={formData.totalPrice}
+                        step="0.01"
+                        value={formData.cashAmount ?? ""}
+                        onChange={(e) => setFormData({ ...formData, cashAmount: Number(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder={`Mínimo $${formData.totalPrice.toFixed(2)}`}
+                      />
+                      {!!formData.cashAmount && formData.cashAmount > formData.totalPrice && (
+                        <p className="mt-2 text-sm text-green-600">Vuelto: ${(formData.cashAmount - formData.totalPrice).toFixed(2)}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
+
               <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
                 <button
                   onClick={() => {
@@ -1148,6 +1181,7 @@ export default function OrdersPage() {
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-900">Editar Orden</h2>
               </div>
+
               <div className="p-6 space-y-6">
                 {/* Customer Info */}
                 <div>
@@ -1158,41 +1192,19 @@ export default function OrdersPage() {
                       <input
                         type="text"
                         value={formData.customer.name}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, name: e.target.value },
-                          })
-                        }
+                        onChange={(e) => setFormData({ ...formData, customer: { ...formData.customer, name: e.target.value } })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Nombre del cliente"
                       />
                     </div>
-                    {/* <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                      <input
-                        type="email"
-                        value={formData.customer.email}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, email: e.target.value },
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="email@ejemplo.com"
-                      />
-                    </div> */}
+
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Dirección *</label>
                       <input
                         type="text"
                         value={formData.customer.address}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, address: e.target.value },
-                          })
+                          setFormData({ ...formData, customer: { ...formData.customer, address: e.target.value } })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Dirección de entrega"
@@ -1205,10 +1217,7 @@ export default function OrdersPage() {
                         type="text"
                         value={formData.customer.location || ""}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, location: e.target.value },
-                          })
+                          setFormData({ ...formData, customer: { ...formData.customer, location: e.target.value } })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Ubicación (Link de Google Maps)"
@@ -1217,7 +1226,7 @@ export default function OrdersPage() {
                       {formData.customer.location?.includes("https://maps.google.com") && (
                         <button
                           className="mt-2 text-blue-600 hover:underline text-sm"
-                          onClick={() => window.open(formData.customer.location, "_blank")}
+                          onClick={() => window.open(formData.customer.location!, "_blank")}
                         >
                           Ver en Google Maps
                         </button>
@@ -1229,17 +1238,46 @@ export default function OrdersPage() {
                       <input
                         type="text"
                         value={formData.customer.phone}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            customer: { ...formData.customer, phone: e.target.value },
-                          })
-                        }
+                        onChange={(e) => setFormData({ ...formData, customer: { ...formData.customer, phone: e.target.value } })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Número de teléfono"
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Turnos (editar) */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Turno *</h3>
+
+                  {turnsLoading ? (
+                    <div className="text-sm text-gray-500">Cargando turnos...</div>
+                  ) : turns.length === 0 ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      No hay turnos disponibles en este momento.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {turns.map((t) => {
+                        const active = formData.turnId === t._id
+                        return (
+                          <button
+                            key={t._id}
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, turnId: t._id }))}
+                            className={`p-3 rounded-lg border-2 transition-all font-medium text-left ${
+                              active ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 hover:border-gray-400"
+                            }`}
+                          >
+                            <div className="font-semibold">{t.name}</div>
+                            <div className="text-sm opacity-80">{t.startTime}</div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {!formData.turnId && <p className="mt-2 text-xs text-gray-500">Seleccioná un turno para guardar cambios.</p>}
                 </div>
 
                 {/* Cart Items */}
@@ -1253,20 +1291,19 @@ export default function OrdersPage() {
                       + Agregar Item
                     </button>
                   </div>
+
                   <div className="space-y-4">
                     {formData.cart.map((item, index) => (
                       <div key={index} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex justify-between items-start mb-4">
                           <h4 className="font-medium text-gray-900">Item {index + 1}</h4>
                           {formData.cart.length > 1 && (
-                            <button
-                              onClick={() => removeCartItem(index)}
-                              className="text-red-600 hover:text-red-900 text-sm"
-                            >
+                            <button onClick={() => removeCartItem(index)} className="text-red-600 hover:text-red-900 text-sm">
                               Eliminar
                             </button>
                           )}
                         </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Ensalada *</label>
@@ -1294,6 +1331,7 @@ export default function OrdersPage() {
                               }}
                             />
                           </div>
+
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad *</label>
                             <input
@@ -1306,9 +1344,14 @@ export default function OrdersPage() {
                           </div>
 
                           <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {item.removedIngredients}
-                            </label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Sin (ingredientes)</label>
+                            <input
+                              type="text"
+                              value={item.removedIngredients}
+                              onChange={(e) => updateCartItem(index, "removedIngredients", e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              placeholder="Ej: sin cebolla"
+                            />
                           </div>
 
                           <div className="md:col-span-2">
@@ -1321,9 +1364,7 @@ export default function OrdersPage() {
                                   value: ing._id,
                                   label: `${ing.name} (+$${ing.priceAsExtra})`,
                                 }))}
-                              onChange={(selected) =>
-                                updateCartItem(index, "extra", selected ? selected.map((s) => s.value) : [])
-                              }
+                              onChange={(selected) => updateCartItem(index, "extra", selected ? selected.map((s) => s.value) : [])}
                               options={ingredients.map((ing) => ({
                                 value: ing._id,
                                 label: `${ing.name} (+$${ing.priceAsExtra})`,
@@ -1344,7 +1385,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Total Price and Status */}
+                {/* Total, Estado, Pago */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Precio Total *</label>
@@ -1358,11 +1399,12 @@ export default function OrdersPage() {
                       placeholder="0.00"
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Estado *</label>
                     <Select
                       value={{ value: formData.status, label: formData.status }}
-                      onChange={(option) => setFormData({ ...formData, status: option?.value || "Pending" })}
+                      onChange={(option) => setFormData({ ...formData, status: (option?.value as any) || "Pending" })}
                       options={[
                         { value: "Pending", label: "Pending" },
                         { value: "In Progress", label: "In Progress" },
@@ -1379,55 +1421,57 @@ export default function OrdersPage() {
                       }}
                     />
                   </div>
-                  <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Medio de pago *</label>
-  <div className="grid grid-cols-2 gap-3">
-    <button
-      type="button"
-      onClick={() => setFormData({ ...formData, paymentMethod: "Cash", cashAmount: formData.cashAmount ?? formData.totalPrice })}
-      className={`p-3 rounded-lg border-2 transition-all font-medium ${
-        formData.paymentMethod === "Cash"
-          ? "border-blue-600 bg-blue-50 text-blue-700"
-          : "border-gray-300 hover:border-gray-400"
-      }`}
-    >
-      Efectivo
-    </button>
-    <button
-      type="button"
-      onClick={() => setFormData({ ...formData, paymentMethod: "Transfer", cashAmount: undefined })}
-      className={`p-3 rounded-lg border-2 transition-all font-medium ${
-        formData.paymentMethod === "Transfer"
-          ? "border-blue-600 bg-blue-50 text-blue-700"
-          : "border-gray-300 hover:border-gray-400"
-      }`}
-    >
-      Transferencia
-    </button>
-  </div>
-</div>
 
-{formData.paymentMethod === "Cash" && (
-  <div className="md:col-span-2">
-    <label className="block text-sm font-medium text-gray-700 mb-2">¿Con cuánto paga? *</label>
-    <input
-      type="number"
-      min={formData.totalPrice}
-      step="0.01"
-      value={formData.cashAmount ?? ""}
-      onChange={(e) => setFormData({ ...formData, cashAmount: Number(e.target.value) || 0 })}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-      placeholder={`Mínimo $${formData.totalPrice.toFixed(2)}`}
-    />
-    {!!formData.cashAmount && formData.cashAmount > formData.totalPrice && (
-      <p className="mt-2 text-sm text-green-600">
-        Vuelto: ${(formData.cashAmount - formData.totalPrice).toFixed(2)}
-      </p>
-    )}
-  </div>
-)}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Medio de pago *</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData({ ...formData, paymentMethod: "Cash", cashAmount: formData.cashAmount ?? formData.totalPrice })
+                        }
+                        className={`p-3 rounded-lg border-2 transition-all font-medium ${
+                          formData.paymentMethod === "Cash"
+                            ? "border-blue-600 bg-blue-50 text-blue-700"
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        Efectivo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, paymentMethod: "Transfer", cashAmount: undefined })}
+                        className={`p-3 rounded-lg border-2 transition-all font-medium ${
+                          formData.paymentMethod === "Transfer"
+                            ? "border-blue-600 bg-blue-50 text-blue-700"
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        Transferencia
+                      </button>
+                    </div>
+                  </div>
+
+                  {formData.paymentMethod === "Cash" && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">¿Con cuánto paga? *</label>
+                      <input
+                        type="number"
+                        min={formData.totalPrice}
+                        step="0.01"
+                        value={formData.cashAmount ?? ""}
+                        onChange={(e) => setFormData({ ...formData, cashAmount: Number(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder={`Mínimo $${formData.totalPrice.toFixed(2)}`}
+                      />
+                      {!!formData.cashAmount && formData.cashAmount > formData.totalPrice && (
+                        <p className="mt-2 text-sm text-green-600">Vuelto: ${(formData.cashAmount - formData.totalPrice).toFixed(2)}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
+
               <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
                 <button
                   onClick={() => {
@@ -1457,8 +1501,8 @@ export default function OrdersPage() {
               <div className="p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Confirmar Eliminación</h2>
                 <p className="text-gray-600 mb-6">
-                  ¿Estás seguro de que deseas eliminar la orden de <strong>{selectedOrder.customer.name}</strong>? Esta
-                  acción no se puede deshacer.
+                  ¿Estás seguro de que deseas eliminar la orden de <strong>{selectedOrder.customer.name}</strong>? Esta acción no se puede
+                  deshacer.
                 </p>
                 <div className="flex justify-end space-x-3">
                   <button
