@@ -2,33 +2,39 @@
 
 import type React from "react"
 
-import { useState ,useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useCart } from "../context/CartProvider"
 import { makeQuery } from "../utils/api"
 import { Trash2, CheckCircle, ShoppingCart, Timer } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useSnackbar } from "notistack"
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons"
 import MapSelector from "./MapSelector"
 import OSMAddressAutocomplete from "./OSMAddressAutocomplete"
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const toRad = (v: number) => (v * Math.PI) / 180;
+  const R = 6371
+  const toRad = (v: number) => (v * Math.PI) / 180
 
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
 
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
 }
 
+type Turn = {
+  _id: string
+  name: string
+  startTime: string
+  available: boolean
+}
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -47,86 +53,108 @@ export default function CheckoutPage() {
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const { enqueueSnackbar } = useSnackbar()
 
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null); 
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null)
 
-  const [includeCutlery, setIncludeCutlery] = useState(false);
-  const [comments, setComments] = useState("");
+  const [includeCutlery, setIncludeCutlery] = useState(false)
+  const [comments, setComments] = useState("")
 
   const [distanceKmToStore, setDistanceKmToStore] = useState<number | null>(null)
   const [distanceError, setDistanceError] = useState<string>("")
 
   const STORE = { lat: -24.7892417, lng: -65.4104199 }
   const MAX_KM = 4
-  
-  const [needsLocationCheck, setNeedsLocationCheck] = useState(true);
 
+  const [needsLocationCheck, setNeedsLocationCheck] = useState(true)
 
+  // ✅ TURNOS
+  const [turns, setTurns] = useState<Turn[]>([])
+  const [turnsLoading, setTurnsLoading] = useState(false)
+  const [selectedTurnId, setSelectedTurnId] = useState<string>("")
 
   useEffect(() => {
-  // Si ya hay ubicación guardada, no volvemos a pedir
-  if (customer.location) return;
+    // Si ya hay ubicación guardada, no volvemos a pedir
+    if (customer.location) return
 
-  if (!("geolocation" in navigator)) return;
+    if (!("geolocation" in navigator)) return
 
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude
+        const lng = pos.coords.longitude
 
-      // ✅ Esto dispara el cálculo automáticamente
-      setCustomer((prev) => ({
-        ...prev,
-        location: `${lat},${lng}`,
-      }));
+        // ✅ Esto dispara el cálculo automáticamente
+        setCustomer((prev) => ({
+          ...prev,
+          location: `${lat},${lng}`,
+        }))
 
-      // ✅ Esto centra el mapa y marca el pin
-      setCenter({ lat, lng });
-      setSelectedLocation({ lat, lng });
-    },
-    () => {
-      // Si el usuario niega permiso, que quede el mensaje actual
-      // (no cambiamos nada)
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
+        // ✅ Esto centra el mapa y marca el pin
+        setCenter({ lat, lng })
+        setSelectedLocation({ lat, lng })
+      },
+      () => {
+        // Si el usuario niega permiso, que quede el mensaje actual
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!customer.location) {
+      setDistanceKmToStore(null)
+      setDistanceError("Seleccioná un punto en el mapa para validar si estás dentro del radio de entrega.")
+      setNeedsLocationCheck(true)
+      return
     }
-  );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
 
+    const parts = customer.location.split(",").map((x) => Number(x.trim()))
+    if (parts.length !== 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) {
+      setDistanceKmToStore(null)
+      setDistanceError("No pudimos interpretar la ubicación seleccionada.")
+      setNeedsLocationCheck(true)
+      return
+    }
 
+    const [lat, lng] = parts
+    const km = haversineKm(lat, lng, STORE.lat, STORE.lng)
+    setDistanceKmToStore(km)
+    setNeedsLocationCheck(false)
 
+    if (km > MAX_KM) {
+      setDistanceError(`Tu ubicación está a ${km.toFixed(2)} km. Solo hacemos envíos hasta ${MAX_KM} km.`)
+    } else {
+      setDistanceError("")
+    }
+  }, [customer.location])
+
+  // ✅ Cargar turnos disponibles
   useEffect(() => {
-  if (!customer.location) {
-    setDistanceKmToStore(null);
-    setDistanceError("Seleccioná un punto en el mapa para validar si estás dentro del radio de entrega.");
-    setNeedsLocationCheck(true);
-    return;
-  }
+    const loadTurns = async () => {
+      await makeQuery(
+        null,
+        "getTurns",
+        { available: "true" },
+        enqueueSnackbar,
+        (data) => {
+          const list: Turn[] = Array.isArray(data) ? data : []
+          const onlyAvailable = list.filter((t) => t.available)
+          const sorted = [...onlyAvailable].sort((a, b) => a.startTime.localeCompare(b.startTime))
+          setTurns(sorted)
+        },
+        setTurnsLoading,
+      )
+    }
 
-  const parts = customer.location.split(",").map((x) => Number(x.trim()));
-  if (parts.length !== 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) {
-    setDistanceKmToStore(null);
-    setDistanceError("No pudimos interpretar la ubicación seleccionada.");
-    setNeedsLocationCheck(true);
-    return;
-  }
-
-  const [lat, lng] = parts;
-  const km = haversineKm(lat, lng, STORE.lat, STORE.lng);
-  setDistanceKmToStore(km);
-  setNeedsLocationCheck(false);
-
-  if (km > MAX_KM) {
-    setDistanceError(`Tu ubicación está a ${km.toFixed(2)} km. Solo hacemos envíos hasta ${MAX_KM} km.`);
-  } else {
-    setDistanceError("");
-  }
-}, [customer.location]);
+    loadTurns()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const showNotification = (message: string, type: "success" | "error") => {
     setNotification({ message, type })
@@ -141,7 +169,7 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!customer.name  || !customer.address || !customer.phone) {
+    if (!customer.name || !customer.address || !customer.phone) {
       showNotification("Por favor completá todos los campos requeridos", "error")
       return
     }
@@ -166,10 +194,9 @@ export default function CheckoutPage() {
       return
     }
 
-
     if (needsLocationCheck) {
-      showNotification("Seleccioná un punto en el mapa para validar el radio de entrega.", "error");
-      return;
+      showNotification("Seleccioná un punto en el mapa para validar el radio de entrega.", "error")
+      return
     }
 
     if (distanceKmToStore !== null && distanceKmToStore > MAX_KM) {
@@ -177,7 +204,11 @@ export default function CheckoutPage() {
       return
     }
 
-    
+    // ✅ Turno obligatorio
+    if (!selectedTurnId) {
+      showNotification("Por favor elegí un turno para tu pedido", "error")
+      return
+    }
 
     const orderData = {
       cart: cartItems.map((item) => ({
@@ -197,20 +228,14 @@ export default function CheckoutPage() {
       paymentMethod,
       ...(paymentMethod === "Cash" && { cashAmount: Number.parseFloat(cashAmount) }),
       includeCutlery,
-      comments
+      comments,
+      turnId: selectedTurnId, // ✅ NUEVO
     }
 
-    makeQuery(
-      "",
-      "createOrder",
-      orderData,
-      enqueueSnackbar,
-      () => {
-        clearCart()
-        setOrderCompleted(true)
-      },
-      setIsSubmitting,
-    )
+    makeQuery("", "createOrder", orderData, enqueueSnackbar, () => {
+      clearCart()
+      setOrderCompleted(true)
+    }, setIsSubmitting)
   }
 
   if (orderCompleted) {
@@ -218,21 +243,21 @@ export default function CheckoutPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
           <div className="text-green-600 mb-6">
-            {paymentMethod ==="Transfer" ? <Timer size={80} className="mx-auto" color="orange" />:<CheckCircle size={80} className="mx-auto" />}
+            {paymentMethod === "Transfer" ? <Timer size={80} className="mx-auto" color="orange" /> : <CheckCircle size={80} className="mx-auto" />}
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">{paymentMethod ==="Transfer" ?"Pedido pendiente de pago" :"¡Pedido Confirmado!"}</h1>
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">{paymentMethod === "Transfer" ? "Pedido pendiente de pago" : "¡Pedido Confirmado!"}</h1>
           <p className="text-gray-600 ">
-            {paymentMethod ==="Transfer" ? 'Para confirmar tu pedido debes transferir al alias: ALIASPRUEBA y enviar el comprobante por WhatsApp al numero 3872572264': 'Gracias por tu pedido. Te contactaremos pronto para confirmar la entrega.'}
+            {paymentMethod === "Transfer"
+              ? "Para confirmar tu pedido debes transferir al alias: ALIASPRUEBA y enviar el comprobante por WhatsApp al numero 3872572264"
+              : "Gracias por tu pedido. Te contactaremos pronto para confirmar la entrega."}
           </p>
-          {paymentMethod ==="Transfer" ? <div className="text-sm text-gray-500 mb-6"><a
-                                      href={'https://wa.me/3872572264'}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm text-blue-600 hover:underline"
-                                    >
-                                       <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "50px" }} />
-                                    </a>
-                                  </div>:null}
+          {paymentMethod === "Transfer" ? (
+            <div className="text-sm text-gray-500 mb-6">
+              <a href={"https://wa.me/3872572264"} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                <FontAwesomeIcon icon={faWhatsapp} style={{ color: "#25D366", fontSize: "50px" }} />
+              </a>
+            </div>
+          ) : null}
 
           <button
             onClick={() => navigate("/menu")}
@@ -293,11 +318,7 @@ export default function CheckoutPage() {
                         <h3 className="font-medium">{item.salad.name}</h3>
                         <p className="text-sm text-gray-500">{item.salad.description}</p>
                       </div>
-                      <button
-                        onClick={() => removeFromCart(index)}
-                        className="text-red-600 hover:text-red-700 ml-2"
-                        title="Eliminar"
-                      >
+                      <button onClick={() => removeFromCart(index)} className="text-red-600 hover:text-red-700 ml-2" title="Eliminar">
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -306,10 +327,7 @@ export default function CheckoutPage() {
                       <span className="font-medium">Base:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {item.salad.base.map((ingredient) => (
-                          <span
-                            key={ingredient._id}
-                            className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs"
-                          >
+                          <span key={ingredient._id} className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs">
                             {ingredient.name}
                           </span>
                         ))}
@@ -332,10 +350,7 @@ export default function CheckoutPage() {
                         <span className="font-medium">Extras:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {item.extra.map((ingredient) => (
-                            <span
-                              key={ingredient._id}
-                              className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs"
-                            >
+                            <span key={ingredient._id} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">
                               {ingredient.name} (+${ingredient.priceAsExtra})
                             </span>
                           ))}
@@ -391,22 +406,6 @@ export default function CheckoutPage() {
                 />
               </div>
 
-              {/* <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  required
-                  value={customer.email}
-                  onChange={handleInputChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="tu@email.com"
-                />
-              </div> */}
-
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                   Teléfono *
@@ -438,36 +437,35 @@ export default function CheckoutPage() {
                   placeholder="Calle, número, piso, depto"
                 />
               </div>
- 
-              
 
               <OSMAddressAutocomplete
-                query={customer.address}   // 🔥 lo que escribe el usuario
+                query={customer.address}
                 onSelect={(coords) => {
-                  setCenter(coords);
-                  setSelectedLocation(coords);
+                  setCenter(coords)
+                  setSelectedLocation(coords)
 
                   setCustomer((prev) => ({
-                  ...prev,
-                  location: `${coords.lat},${coords.lng}`,
-                }));
+                    ...prev,
+                    location: `${coords.lat},${coords.lng}`,
+                  }))
                 }}
               />
+
               <div>
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
                   Ubicación (opcional)
-                </label>                
+                </label>
 
                 <MapSelector
-                  center={center} 
+                  center={center}
                   onSelect={(coords) => {
-                    setSelectedLocation(coords);
-                    setCenter(null);   // 🔥 evita que el mapa se siga moviendo
+                    setSelectedLocation(coords)
+                    setCenter(null)
 
                     setCustomer((prev) => ({
                       ...prev,
                       location: `${coords.lat},${coords.lng}`,
-                    }));
+                    }))
                   }}
                 />
 
@@ -482,7 +480,6 @@ export default function CheckoutPage() {
                     Estás dentro del radio de entrega: {distanceKmToStore.toFixed(2)} km (máximo {MAX_KM} km)
                   </div>
                 )}
-
 
                 {customer.location && (
                   <a
@@ -548,9 +545,7 @@ export default function CheckoutPage() {
                     placeholder={`Mínimo $${getTotal().toFixed(2)}`}
                   />
                   {cashAmount && Number.parseFloat(cashAmount) > getTotal() && (
-                    <p className="mt-2 text-sm text-green-600">
-                      Vuelto: ${(Number.parseFloat(cashAmount) - getTotal()).toFixed(2)}
-                    </p>
+                    <p className="mt-2 text-sm text-green-600">Vuelto: ${(Number.parseFloat(cashAmount) - getTotal()).toFixed(2)}</p>
                   )}
                 </div>
               )}
@@ -567,6 +562,43 @@ export default function CheckoutPage() {
                   Incluir cubiertos
                 </label>
               </div>
+
+              {/* ✅ TURNOS (debajo de incluir cubiertos) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">Turno *</label>
+
+                {turnsLoading ? (
+                  <div className="text-sm text-gray-500">Cargando turnos...</div>
+                ) : turns.length === 0 ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    No hay turnos disponibles en este momento.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {turns.map((t) => {
+                      const active = selectedTurnId === t._id
+                      return (
+                        <button
+                          key={t._id}
+                          type="button"
+                          onClick={() => setSelectedTurnId(t._id)}
+                          className={`p-4 rounded-lg border-2 transition-all font-medium text-left ${
+                            active ? "border-green-600 bg-green-50 text-green-700" : "border-gray-300 hover:border-gray-400"
+                          }`}
+                        >
+                          <div className="font-semibold">{t.name}</div>
+                          <div className="text-sm opacity-80">{t.startTime}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {!selectedTurnId && (
+                  <p className="mt-2 text-xs text-gray-500">Elegí un turno para poder confirmar el pedido.</p>
+                )}
+              </div>
+
               <div>
                 <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
                   Comentarios (opcional)
@@ -581,14 +613,18 @@ export default function CheckoutPage() {
                   placeholder="Ej: Dejar en portería, tocar timbre B, sin cebolla, etc."
                   maxLength={500}
                 />
-                <p className="mt-1 text-xs text-gray-500">
-                  {comments.length}/500
-                </p>
+                <p className="mt-1 text-xs text-gray-500">{comments.length}/500</p>
               </div>
 
               <button
-                type="submit" 
-                disabled={isSubmitting || needsLocationCheck || !!distanceError}
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  needsLocationCheck ||
+                  !!distanceError ||
+                  !selectedTurnId || // ✅ no deja enviar si no eligió turno
+                  turns.length === 0
+                }
                 className="w-full bg-green-600 text-white py-4 rounded-lg hover:bg-green-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isSubmitting ? (
