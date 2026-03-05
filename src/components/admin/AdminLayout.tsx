@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, Outlet, Navigate } from 'react-router-dom';
-import { BarChart3, ShoppingBag, UtensilsCrossed, Package } from 'lucide-react';
+import { BarChart3, ShoppingBag, UtensilsCrossed, Package, Clock } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
   const location = useLocation();
@@ -33,6 +33,12 @@ const AdminLayout: React.FC = () => {
       name: 'Ingredientes',
       href: '/admin/ingredients',
       icon: Package,
+    },
+    // ✅ NUEVO
+    {
+      name: 'Turnos',
+      href: '/admin/turns',
+      icon: Clock,
     },
   ];
 

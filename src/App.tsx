@@ -1,4 +1,4 @@
-import React from "react";
+ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import Menu from "./components/Menu";
@@ -10,6 +10,7 @@ import Orders from "./components/admin/Orders";
 import { Footer } from "./components/Footer";
 import Ingredients from "./components/admin/Ingredients";
 import SaladsPage from "./components/admin/Salads";
+import TurnsPage from "./components/admin/Turns"; // ✅ NUEVO
 import { SnackbarProvider } from "notistack";
 import { CartProvider } from "./context/CartProvider";
 import DistanciaPage from "./components/Distancia";
@@ -73,6 +74,7 @@ const App: React.FC = () => {
                 <Route path="orders" element={<Orders />} />
                 <Route path="salads" element={<SaladsPage />} />
                 <Route path="ingredients" element={<Ingredients />} />
+                <Route path="turns" element={<TurnsPage />} /> {/* ✅ NUEVO */}
               </Route>
 
               {/* Ruta por defecto */}

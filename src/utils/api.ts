@@ -150,6 +150,20 @@ petitions.getOrderById = (id: string) => api.get(`/orders/${id}`);
 petitions.updateOrder = ({ id, ...form }: any) => api.put(`/orders/${id}`, form);
 petitions.deleteOrder = (id: string) => api.delete(`/orders/${id}`);
 
+
+// * TURNS
+petitions.createTurn = (form: FormType) => api.post("/turns", form);
+
+petitions.getTurns = (filter: { name?: string; available?: string }) =>
+  api.get("/turns", { params: filter });
+
+petitions.getTurnById = (id: string) => api.get(`/turns/${id}`);
+
+petitions.updateTurn = ({ id, ...form }: any) =>
+  api.put(`/turns/${id}`, form);
+
+petitions.deleteTurn = (id: string) => api.delete(`/turns/${id}`);
+
 // * STATS
 petitions.getStats = () => api.get("/stats/dashboard");
 
