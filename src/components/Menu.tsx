@@ -5,6 +5,10 @@ import { Plus, ShoppingCart, Check, X, Minus } from "lucide-react"
 import { useCart } from "../context/CartProvider"
 import { makeQuery } from "../utils/api"
 import { useSnackbar } from "notistack"
+import BotonImprimirPrueba from "./BotonImprimirPrueba"
+
+
+
 
 interface Ingredient {
   _id: string
@@ -214,6 +218,7 @@ const openCustomization = (salad: Salad) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Nuestro Menú</h1>
+          <BotonImprimirPrueba />
           <p className="text-xl text-gray-600">Elegí tu ensalada favorita y personalizala a tu gusto</p>
         </div>
 

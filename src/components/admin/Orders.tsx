@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo , useRef} from "react"
 import { makeQuery } from "../../utils/api"
 import Select from "react-select"
 import { useSnackbar } from "notistack"
@@ -8,6 +8,8 @@ import { ChevronDown } from "lucide-react"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons"
 import { formatMoney } from "../formatNumber"
+import qz from "qz-tray"
+
 
 interface Ingredient {
   _id: string
@@ -573,6 +575,147 @@ export default function OrdersPage() {
     return `${order.turn.name} - ${order.turn.startTime}`
   }
 
+
+  //IMPRIMIR
+
+  const qzConnectedRef = useRef(false)
+
+const ensureQZConnection = async () => {
+  if (!qzConnectedRef.current) {
+    await qz.websocket.connect()
+    qzConnectedRef.current = true
+  }
+}
+
+  const formatPrintDate = () => {
+    return new Date().toLocaleString("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const getSaladBasePrice = (salad: Salad | string) => {
+    if (typeof salad === "string") {
+      const found = salads.find((s) => s._id === salad)
+      return found?.price ?? 0
+    }
+    return salad.price ?? 0
+  }
+
+  const getExtrasPrice = (extras: (Ingredient | string)[]) => {
+    return extras.reduce((sum, extra) => {
+      if (typeof extra === "string") {
+        const found = ingredients.find((i) => i._id === extra)
+        return sum + (found?.priceAsExtra ?? 0)
+      }
+      return sum + (extra.priceAsExtra ?? 0)
+    }, 0)
+  }
+
+  const getExtrasNamesForPrint = (extras: (Ingredient | string)[]) => {
+    return extras
+      .map((extra) => {
+        if (typeof extra === "string") {
+          const found = ingredients.find((i) => i._id === extra)
+          return found?.name ?? extra
+        }
+        return extra.name
+      })
+      .filter(Boolean)
+  }
+
+  const formatTicketLine = (left: string, right: string, width = 32) => {
+    const spaces = Math.max(1, width - left.length - right.length)
+    return `${left}${" ".repeat(spaces)}${right}\n`
+  }
+
+  const handlePrint = async (order: Order) => {
+    try {
+      await ensureQZConnection()
+
+      const config = qz.configs.create("POS-80", {
+        encoding: "CP850",
+      })
+
+      const data: string[] = []
+
+      data.push("\x1B\x40") // init
+      data.push("\x1B\x61\x01") // center
+      data.push("\x1B\x21\x20") // doble alto
+      data.push("POTE\n")
+      data.push("\x1B\x21\x08") // bold
+      data.push("NO VALIDO COMO FACTURA\n")
+      data.push("\x1B\x21\x00") // normal
+      data.push("\n")
+
+      data.push("\x1B\x61\x00") // left
+      data.push(`Fecha: ${formatPrintDate()}\n`)
+      data.push(`Cliente: ${order.customer?.name ?? "Sin nombre"}\n`)
+      data.push(`Direccion: ${order.customer?.address ?? "Sin direccion"}\n`)
+      data.push("--------------------------------\n")
+
+      order.cart.forEach((item) => {
+        const saladName =
+          typeof item.salad === "string"
+            ? salads.find((s) => s._id === item.salad)?.name ?? "Ensalada"
+            : item.salad.name
+
+        const basePrice = getSaladBasePrice(item.salad)
+        const extrasPrice = getExtrasPrice(item.extra)
+        const unitPrice = basePrice + extrasPrice
+        const totalItem = unitPrice * item.quantity
+
+        data.push("\x1B\x21\x08") // bold
+        data.push(`${saladName} x${item.quantity}\n`)
+        data.push("\x1B\x21\x00") // normal
+
+        const extraNames = getExtrasNamesForPrint(item.extra)
+        if (extraNames.length > 0) {
+          extraNames.forEach((name) => {
+            data.push(`  + ${name}\n`)
+          })
+        }
+
+        if (item.removedIngredients?.trim()) {
+          data.push(`  - ${item.removedIngredients.trim()}\n`)
+        }
+
+        data.push(formatTicketLine("Precio:", `$${totalItem.toFixed(2)}`))
+        data.push("\n")
+      })
+
+      
+      data.push("--------------------------------\n")
+      data.push(`Telefono: ${order.customer?.phone ?? "-"}\n`)
+      data.push(`Pago: ${order.paymentMethod === "Cash" ? "Efectivo" : "Transferencia"}\n`)
+      data.push(`Turno: ${renderTurnText(order)}\n`)
+      data.push(`Cubiertos: ${order.includeCutlery ? "Si" : "No"}\n`)
+      if (order.comments?.trim()) {
+        data.push(`Comentario: ${order.comments.trim()}\n`)
+      } 
+
+
+      data.push("--------------------------------\n")
+      data.push("\x1B\x21\x08") // bold
+      data.push(formatTicketLine("Total:", `$${order.totalPrice.toFixed(2)}`))
+      data.push("\x1B\x21\x00")
+      data.push("\n\n\n")
+      data.push("\x1D\x56\x00") // cut
+
+      await qz.print(config, data)
+
+      showNotification("Pedido enviado a imprimir", "success")
+    } catch (error) {
+      console.error("Error al imprimir:", error)
+      showNotification("No se pudo imprimir el pedido", "error")
+    }
+  }
+
+
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
@@ -837,7 +980,9 @@ export default function OrdersPage() {
 
                                 <td className="px-6 py-4 text-sm font-medium  text-center ">
                                   <div className="flex flex-col gap-1 ">
-                                    <button onClick={() => openEditModal(order)} className="text-blue-600 hover:text-blue-900">
+                                    <button onClick={() => handlePrint(order)} className="text-blue-600 hover:text-blue-900">
+                                      Imprimir
+                                    </button><button onClick={() => openEditModal(order)} className="text-blue-600 hover:text-blue-900">
                                       Editar
                                     </button>
                                     <button onClick={() => openDeleteModal(order)} className="text-red-600 hover:text-red-900">
