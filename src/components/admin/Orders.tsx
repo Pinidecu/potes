@@ -702,7 +702,7 @@ const ensureQZConnection = async () => {
       data.push("\x1B\x21\x08") // bold
       data.push(formatTicketLine("Total:", `$${order.totalPrice.toFixed(2)}`))
       data.push("\x1B\x21\x00")
-      data.push("\n\n\n")
+      data.push("\n\n\n\n\n\n\n\n") 
       data.push("\x1D\x56\x00") // cut
 
       await qz.print(config, data)
