@@ -8,7 +8,8 @@ import { ChevronDown } from "lucide-react"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons"
 import { formatMoney } from "../formatNumber"
-import qz from "qz-tray"
+import qz from "qz-tray"   
+import { configureQZSecurity } from "../../utils/configureQZSecurity"
 
 
 interface Ingredient {
@@ -580,8 +581,12 @@ export default function OrdersPage() {
 
   const qzConnectedRef = useRef(false)
 
+ 
+ 
+
 const ensureQZConnection = async () => {
   if (!qzConnectedRef.current) {
+    configureQZSecurity()
     await qz.websocket.connect()
     qzConnectedRef.current = true
   }
