@@ -6,7 +6,7 @@ export function configureQZSecurity() {
   if (qzSecurityConfigured) return
 
   qz.security.setCertificatePromise((resolve, reject) => {
-    fetch("/qz/digital-certificate.txt", {
+    fetch("/digital-certificate.txt", {
       cache: "no-store",
       headers: {
         "Content-Type": "text/plain",
