@@ -29,7 +29,7 @@ export function configureQZSecurity() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ request: toSign }),
+        body: JSON.stringify({ payload: toSign }),
       })
         .then((res) => {
           if (!res.ok) throw new Error("No se pudo firmar la solicitud")
