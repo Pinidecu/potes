@@ -23,22 +23,29 @@ export function configureQZSecurity() {
   qz.security.setSignatureAlgorithm("SHA512")
 
   qz.security.setSignaturePromise((toSign) => {
-    return (resolve, reject) => {
-      fetch("/api/qz-sign", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ payload: toSign }),
+  console.log("QZ toSign:", toSign, "type:", typeof toSign);
+
+  return (resolve, reject) => {
+    fetch("/api/qz-sign", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ payload: toSign }),
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        console.log("QZ sign response:", res.status, text);
+
+        if (!res.ok) {
+          throw new Error(`No se pudo firmar la solicitud: ${text}`);
+        }
+
+        resolve(text);
       })
-        .then((res) => {
-          if (!res.ok) throw new Error("No se pudo firmar la solicitud")
-          return res.text()
-        })
-        .then(resolve)
-        .catch(reject)
-    }
-  })
+      .catch(reject);
+  };
+});
 
   qzSecurityConfigured = true
 }
