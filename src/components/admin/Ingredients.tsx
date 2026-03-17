@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { act, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { makeQuery } from "../../utils/api"
 
 interface Ingredient {
@@ -10,6 +10,8 @@ interface Ingredient {
   name: string
   priceAsExtra: number
   precioDescuento: number
+  calories: number
+  carbohydrates: number
   active: boolean
   type: "base" | "vegetal" | "premium" | "proteina" | "aderezo" | "extra"
 }
@@ -25,6 +27,8 @@ export default function IngredientsPage() {
     name: "",
     priceAsExtra: "",
     precioDescuento: "",
+    calories: "",
+    carbohydrates: "",
     type: "base" as Ingredient["type"],
   })
   const [snackbar, setSnackbar] = useState<{
@@ -55,7 +59,14 @@ export default function IngredientsPage() {
   }, [])
 
   const handleCreateOpen = () => {
-    setFormData({ name: "", priceAsExtra: "", precioDescuento: "", type: "base" })
+    setFormData({
+      name: "",
+      priceAsExtra: "",
+      precioDescuento: "",
+      calories: "",
+      carbohydrates: "",
+      type: "base",
+    })
     setIsCreateModalOpen(true)
   }
 
@@ -65,6 +76,8 @@ export default function IngredientsPage() {
       name: ingredient.name,
       priceAsExtra: ingredient.priceAsExtra.toString(),
       precioDescuento: ingredient.precioDescuento.toString(),
+      calories: ingredient.calories?.toString() ?? "",
+      carbohydrates: ingredient.carbohydrates?.toString() ?? "",
       type: ingredient.type,
     })
     setIsEditModalOpen(true)
@@ -78,7 +91,13 @@ export default function IngredientsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.priceAsExtra || !formData.precioDescuento) {
+    if (
+      !formData.name ||
+      !formData.priceAsExtra ||
+      !formData.precioDescuento ||
+      !formData.calories ||
+      !formData.carbohydrates
+    ) {
       showSnackbar("Complete los campos obligatorios", { variant: "error" })
       return
     }
@@ -90,6 +109,8 @@ export default function IngredientsPage() {
         name: formData.name,
         priceAsExtra: Number.parseFloat(formData.priceAsExtra),
         precioDescuento: Number.parseFloat(formData.precioDescuento),
+        calories: Number.parseFloat(formData.calories),
+        carbohydrates: Number.parseFloat(formData.carbohydrates),
         type: formData.type,
       },
       showSnackbar,
@@ -105,7 +126,13 @@ export default function IngredientsPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.priceAsExtra || !formData.precioDescuento) {
+    if (
+      !formData.name ||
+      !formData.priceAsExtra ||
+      !formData.precioDescuento ||
+      !formData.calories ||
+      !formData.carbohydrates
+    ) {
       showSnackbar("Complete los campos obligatorios", { variant: "error" })
       return
     }
@@ -118,6 +145,8 @@ export default function IngredientsPage() {
         name: formData.name,
         priceAsExtra: Number.parseFloat(formData.priceAsExtra),
         precioDescuento: Number.parseFloat(formData.precioDescuento),
+        calories: Number.parseFloat(formData.calories),
+        carbohydrates: Number.parseFloat(formData.carbohydrates),
         type: formData.type,
       },
       showSnackbar,
@@ -140,10 +169,9 @@ export default function IngredientsPage() {
       },
       showSnackbar,
       () => {
-        showSnackbar(
-          `Ingrediente ${!ingredient.active ? "activado" : "desactivado"} exitosamente`,
-          { variant: "success" },
-        )
+        showSnackbar(`Ingrediente ${!ingredient.active ? "activado" : "desactivado"} exitosamente`, {
+          variant: "success",
+        })
         loadIngredients()
       },
       setLoading,
@@ -189,7 +217,6 @@ export default function IngredientsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">Ingredientes</h1>
@@ -203,7 +230,6 @@ export default function IngredientsPage() {
           </button>
         </div>
 
-        {/* Snackbar */}
         {snackbar && (
           <div
             className={`fixed right-6 top-6 z-50 rounded-lg px-6 py-4 shadow-lg ${
@@ -220,14 +246,12 @@ export default function IngredientsPage() {
           </div>
         )}
 
-        {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-12">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
           </div>
         )}
 
-        {/* Table */}
         {!loading && (
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
             <table className="w-full">
@@ -236,6 +260,8 @@ export default function IngredientsPage() {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Nombre</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Precio Extra</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Precio Descuento</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Calorías</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Carbohidratos</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Tipo</th>
                   <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">Acciones</th>
                 </tr>
@@ -243,7 +269,7 @@ export default function IngredientsPage() {
               <tbody className="divide-y divide-gray-200">
                 {ingredients.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                       No hay ingredientes disponibles. Crea uno nuevo para comenzar.
                     </td>
                   </tr>
@@ -253,16 +279,16 @@ export default function IngredientsPage() {
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{ingredient.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">${ingredient.priceAsExtra.toFixed(2)}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">${ingredient.precioDescuento.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{ingredient.calories ?? 0}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{ingredient.carbohydrates ?? 0}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{getTypeLabel(ingredient.type)}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleChangeStatus(ingredient)}
-                            className={
-                              `rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
-                                ingredient.active ? "bg-yellow-600 hover:bg-yellow-700" : "bg-green-600 hover:bg-green-700"
-                              }`
-                            }
+                            className={`rounded-md px-4 py-2 text-sm font-medium text-white transition-colors ${
+                              ingredient.active ? "bg-yellow-600 hover:bg-yellow-700" : "bg-green-600 hover:bg-green-700"
+                            }`}
                           >
                             {ingredient.active ? "Desactivar" : "Activar"}
                           </button>
@@ -279,8 +305,6 @@ export default function IngredientsPage() {
                           >
                             Eliminar
                           </button>
-                          
-                           
                         </div>
                       </td>
                     </tr>
@@ -291,7 +315,6 @@ export default function IngredientsPage() {
           </div>
         )}
 
-        {/* Create Modal */}
         {isCreateModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
@@ -307,6 +330,7 @@ export default function IngredientsPage() {
                     placeholder="Ej: Tomate"
                   />
                 </div>
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-900">Precio Extra *</label>
                   <input
@@ -319,6 +343,7 @@ export default function IngredientsPage() {
                     placeholder="0.00"
                   />
                 </div>
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-900">Precio Descuento *</label>
                   <input
@@ -331,6 +356,33 @@ export default function IngredientsPage() {
                     placeholder="0.00"
                   />
                 </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-900">Calorías *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.calories}
+                    onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-900">Carbohidratos *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.carbohydrates}
+                    onChange={(e) => setFormData({ ...formData, carbohydrates: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-900">Tipo *</label>
                   <select
@@ -346,6 +398,7 @@ export default function IngredientsPage() {
                     <option value="extra">Extra</option>
                   </select>
                 </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
@@ -367,7 +420,6 @@ export default function IngredientsPage() {
           </div>
         )}
 
-        {/* Edit Modal */}
         {isEditModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
@@ -383,6 +435,7 @@ export default function IngredientsPage() {
                     placeholder="Ej: Tomate"
                   />
                 </div>
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-900">Precio Extra *</label>
                   <input
@@ -395,6 +448,7 @@ export default function IngredientsPage() {
                     placeholder="0.00"
                   />
                 </div>
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-900">Precio Descuento *</label>
                   <input
@@ -407,6 +461,33 @@ export default function IngredientsPage() {
                     placeholder="0.00"
                   />
                 </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-900">Calorías *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.calories}
+                    onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-900">Carbohidratos *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.carbohydrates}
+                    onChange={(e) => setFormData({ ...formData, carbohydrates: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-900">Tipo *</label>
                   <select
@@ -422,6 +503,7 @@ export default function IngredientsPage() {
                     <option value="extra">Extra</option>
                   </select>
                 </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
@@ -443,7 +525,6 @@ export default function IngredientsPage() {
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
         {isDeleteModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
